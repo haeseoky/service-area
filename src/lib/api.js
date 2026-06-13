@@ -2,7 +2,20 @@
 const API_URL = 'https://data.ex.co.kr/openapi/restinfo/restEventList'
 const API_KEY = '0105398808'
 
+// 정적 캐시 우선 → 실패 시 실시간 API 폴백
 export async function fetchEvents({ numOfRows = 1000, pageNo = 1, routeNm, stdRestNm } = {}) {
+  // 1) 정적 캐시 시도 (매일 07시 갱신)
+  try {
+    const cacheRes = await fetch('/events-data.json?t=' + Date.now())
+    if (cacheRes.ok) {
+      const cached = await cacheRes.json()
+      if (cached.list && cached.list.length > 0) {
+        return cached
+      }
+    }
+  } catch {}
+
+  // 2) 실시간 API 폴백
   const params = new URLSearchParams({
     key: API_KEY,
     type: 'json',
