@@ -1,51 +1,39 @@
 <template>
   <div class="traffic-page">
-    <!-- 헤더 -->
     <nav class="page-nav">
       <button class="btn-back" @click="goBack">← 홈</button>
       <span class="nav-title">📊 수도권 관문 교통량</span>
       <span class="nav-spacer"></span>
     </nav>
 
-    <!-- 필터 -->
-    <div class="filter-bar">
-      <div class="filter-group">
-        <label>관문</label>
-        <select v-model="selectedGate" class="filter-select">
-          <option value="">전체</option>
-          <option v-for="g in gates" :key="g" :value="g">{{ g }}</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label>방향</label>
-        <select v-model="selectedDir" class="filter-select">
-          <option value="">전체</option>
-          <option value="진입">진입</option>
-          <option value="진출">진출</option>
-        </select>
-      </div>
-      <button class="btn-refresh" @click="fetchData" :disabled="loading">
-        {{ loading ? '조회 중…' : '🔄 새로고침' }}
+    <!-- 요약 + 관문별 탭 -->
+    <div class="gate-tabs">
+      <button v-for="g in gateList" :key="g.name"
+        :class="['gate-tab', { active: selectedGate === g.name }]"
+        @click="selectedGate = g.name">
+        <span class="gate-emoji">{{ g.emoji }}</span>
+        <span class="gate-text">{{ g.name }}</span>
       </button>
     </div>
 
+    <!-- 집계 시간 -->
+    <div v-if="lastUpdated" class="update-info">
+      🕐 집계시각: {{ lastUpdated }} (15분 단위)
+    </div>
+
     <!-- 요약 카드 -->
-    <div v-if="!loading && filteredData.length > 0" class="summary-cards">
-      <div class="summary-card">
-        <div class="summary-label">총 통행량</div>
-        <div class="summary-value">{{ formatNum(totalVolume) }}</div>
+    <div v-if="!loading && aggregated.length > 0" class="summary-cards">
+      <div class="summary-card total">
+        <div class="summary-label">총 교통량</div>
+        <div class="summary-value">{{ formatNum(grandTotal) }}</div>
       </div>
-      <div class="summary-card">
-        <div class="summary-label">승용차</div>
-        <div class="summary-value">{{ formatNum(totalCar) }}</div>
+      <div class="summary-card in">
+        <div class="summary-label">📥 진입</div>
+        <div class="summary-value">{{ formatNum(totalIn) }}</div>
       </div>
-      <div class="summary-card">
-        <div class="summary-label">버스</div>
-        <div class="summary-value">{{ formatNum(totalBus) }}</div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-label">화물차</div>
-        <div class="summary-value">{{ formatNum(totalTruck) }}</div>
+      <div class="summary-card out">
+        <div class="summary-label">📤 진출</div>
+        <div class="summary-value">{{ formatNum(totalOut) }}</div>
       </div>
     </div>
 
@@ -64,39 +52,58 @@
       </div>
     </div>
 
-    <!-- 시간대별 차트 -->
-    <div v-if="!loading && filteredData.length > 0" class="chart-section">
-      <h3 class="section-title">🕐 시간대별 통행량</h3>
-      <div class="bar-chart">
-        <div v-for="item in hourlyChart" :key="item.hour" class="bar-item">
-          <div class="bar-fill" :style="{ height: item.percent + '%' }"></div>
-          <div class="bar-value">{{ formatNum(item.volume) }}</div>
-          <div class="bar-label">{{ item.hour }}시</div>
+    <!-- 관문별 교통량 카드 -->
+    <div v-if="!loading && aggregated.length > 0" class="gate-cards">
+      <div v-for="agg in aggregated" :key="agg.unitName" class="gate-card">
+        <div class="gate-card-header">
+          <span class="gate-card-name">{{ agg.unitName }}</span>
+          <span class="gate-card-type">{{ agg.exDivName }}</span>
+        </div>
+        <div class="gate-card-body">
+          <div class="gate-stat">
+            <span class="stat-label">📥 진입</span>
+            <span class="stat-value">{{ formatNum(agg.totalIn) }}</span>
+          </div>
+          <div class="gate-stat">
+            <span class="stat-label">📤 진출</span>
+            <span class="stat-value">{{ formatNum(agg.totalOut) }}</span>
+          </div>
+          <div class="gate-stat total">
+            <span class="stat-label">합계</span>
+            <span class="stat-value">{{ formatNum(agg.totalIn + agg.totalOut) }}</span>
+          </div>
+        </div>
+        <!-- 차종별 바 -->
+        <div class="car-type-bars">
+          <div class="bar-row" v-for="ct in agg.carTypes" :key="ct.type">
+            <span class="bar-label">{{ ct.label }}</span>
+            <div class="bar-track">
+              <div class="bar-fill-sm" :style="{ width: ct.percent + '%' }"></div>
+            </div>
+            <span class="bar-num">{{ formatNum(ct.count) }}</span>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- 상세 테이블 -->
-    <div v-if="!loading && filteredData.length > 0" class="table-section">
-      <h3 class="section-title">📋 상세 정보</h3>
+    <!-- 상세 리스트 -->
+    <div v-if="!loading && filtered.length > 0" class="detail-section">
+      <h3 class="section-title">📋 상세 데이터</h3>
       <div class="data-list">
         <div v-for="(item, idx) in pagedData" :key="idx" class="data-row">
           <div class="row-main">
-            <span class="row-gate">{{ item.gateNm }}</span>
-            <span class="row-route">{{ item.routeNm }}</span>
-            <span class="row-dir" :class="item.dirType === '진입' ? 'in' : 'out'">{{ item.dirType }}</span>
+            <span class="row-gate">{{ item.unitName }}</span>
+            <span class="row-type">{{ item.exDivName }}</span>
+            <span class="row-dir" :class="item.inoutName === '입구' ? 'in' : 'out'">{{ item.inoutName }}</span>
+            <span class="row-tcs">{{ item.tcsName }}</span>
           </div>
-          <div class="row-time">{{ item.ymd }} {{ item.hh }}시</div>
-          <div class="row-volumes">
-            <span class="vol-car">🚗 {{ formatNum(item.carVol) }}</span>
-            <span class="vol-bus">🚌 {{ formatNum(item.busVol) }}</span>
-            <span class="vol-truck">🚚 {{ formatNum(item.truckVol) }}</span>
-            <span class="vol-total">{{ formatNum(item.totalVol) }}</span>
+          <div class="row-meta">
+            <span>🚗 {{ carLabel(item.carType) }}</span>
+            <span class="row-vol">{{ formatNum(item.trafficAmout) }}대</span>
+            <span class="row-time">{{ formatTime(item.sumTm) }}</span>
           </div>
         </div>
       </div>
-
-      <!-- 페이지네이션 -->
       <div class="pagination">
         <button :disabled="page === 1" @click="page--">‹ 이전</button>
         <span>{{ page }} / {{ totalPages }}</span>
@@ -104,8 +111,7 @@
       </div>
     </div>
 
-    <!-- 데이터 없음 -->
-    <div v-if="!loading && !error && filteredData.length === 0" class="empty-state">
+    <div v-if="!loading && !error && filtered.length === 0" class="empty-state">
       <div class="empty-icon">📭</div>
       <p>데이터가 없습니다.</p>
     </div>
@@ -119,93 +125,145 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 function goBack() { router.push('/') }
 
-// API config — ex.co.kr OpenAPI (수도권 관문 교통량)
-// ⚠️ API 승인 후 엔드포인트 업데이트 필요
-const API_URL = 'https://data.ex.co.kr/openapi/traffic/metropoGateTrfList'
+const API_URL = 'https://data.ex.co.kr/openapi/trafficapi/trafficFive'
 const API_KEY = '0105398808'
 
-// State
 const loading = ref(false)
 const error = ref('')
 const rawData = ref([])
 const selectedGate = ref('')
-const selectedDir = ref('')
 const page = ref(1)
 const pageSize = 20
 
-// 6대 관문
-const gates = ['서울', '서서울', '동서울', '군자', '남양주', '서시흥']
+const gateList = [
+  { name: '', emoji: '🌐', label: '전체' },
+  { name: '서울', emoji: '🏙️' },
+  { name: '서서울', emoji: '🏢' },
+  { name: '동서울', emoji: '🌅' },
+  { name: '군자', emoji: '📍' },
+  { name: '남양주', emoji: '🌲' },
+  { name: '서시흥', emoji: '🌆' },
+]
 
-// Computed
-const filteredData = computed(() => {
-  let d = rawData.value
-  if (selectedGate.value) d = d.filter(i => i.gateNm?.includes(selectedGate.value))
-  if (selectedDir.value) d = d.filter(i => i.dirType === selectedDir.value)
-  return d
+const carTypeMap = {
+  '1': { label: '1종(승용차)', short: '승용차' },
+  '2': { label: '2종(중형승용)', short: '중형' },
+  '3': { label: '3종(대형승용)', short: '대형' },
+  '4': { label: '4종(소형화물)', short: '소화물' },
+  '5': { label: '5종(대형화물)', short: '대화물' },
+  '6': { label: '6종(특수차량)', short: '특수' },
+  '7': { label: '7종(영업용)', short: '영업용' },
+  '8': { label: '8종(기타)', short: '기타' },
+}
+
+function carLabel(code) {
+  return carTypeMap[code]?.short || `${code}종`
+}
+
+const filtered = computed(() => {
+  if (!selectedGate.value) return rawData.value
+  return rawData.value.filter(i => i.unitName === selectedGate.value)
 })
 
 const pagedData = computed(() => {
   const start = (page.value - 1) * pageSize
-  return filteredData.value.slice(start, start + pageSize)
+  return filtered.value.slice(start, start + pageSize)
 })
 
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredData.value.length / pageSize)))
+const totalPages = computed(() => Math.max(1, Math.ceil(filtered.value.length / pageSize)))
 
-const totalVolume = computed(() => filteredData.value.reduce((s, i) => s + (i.totalVol || 0), 0))
-const totalCar = computed(() => filteredData.value.reduce((s, i) => s + (i.carVol || 0), 0))
-const totalBus = computed(() => filteredData.value.reduce((s, i) => s + (i.busVol || 0), 0))
-const totalTruck = computed(() => filteredData.value.reduce((s, i) => s + (i.truckVol || 0), 0))
+const lastUpdated = computed(() => {
+  if (rawData.value.length === 0) return ''
+  const latest = rawData.value[0]
+  if (!latest.sumDate || !latest.sumTm) return ''
+  const d = latest.sumDate
+  const t = latest.sumTm.padStart(4, '0')
+  return `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)} ${t.slice(0,2)}:${t.slice(2,4)}`
+})
 
-const hourlyChart = computed(() => {
+// 관문별 집계
+const aggregated = computed(() => {
   const map = new Map()
-  for (const item of filteredData.value) {
-    const h = item.hh || 0
-    map.set(h, (map.get(h) || 0) + (item.totalVol || 0))
+  for (const item of filtered.value) {
+    const key = item.unitName
+    if (!map.has(key)) {
+      map.set(key, {
+        unitName: key,
+        exDivName: item.exDivName,
+        unitCode: item.unitCode,
+        totalIn: 0,
+        totalOut: 0,
+        carTypes: {},
+      })
+    }
+    const agg = map.get(key)
+    const vol = parseInt(item.trafficAmout || '0', 10)
+    if (item.inoutName === '입구') agg.totalIn += vol
+    else agg.totalOut += vol
+    const ct = item.carType || '0'
+    if (!agg.carTypes[ct]) agg.carTypes[ct] = 0
+    agg.carTypes[ct] += vol
   }
-  const max = Math.max(...map.values(), 1)
-  const result = []
-  for (let h = 0; h < 24; h++) {
-    const vol = map.get(h) || 0
-    result.push({ hour: h, volume: vol, percent: Math.round((vol / max) * 100) })
+  const result = Array.from(map.values())
+  // 차종별 바 퍼센트 계산
+  for (const agg of result) {
+    const carEntries = Object.entries(agg.carTypes)
+      .map(([type, count]) => ({
+        type,
+        label: carTypeMap[type]?.short || `${type}종`,
+        count,
+      }))
+      .sort((a, b) => b.count - a.count)
+    const maxCar = Math.max(...carEntries.map(c => c.count), 1)
+    carEntries.forEach(c => c.percent = Math.round((c.count / maxCar) * 100))
+    agg.carTypes = carEntries.slice(0, 6) // 상위 6개
   }
   return result
 })
 
-// Methods
+const grandTotal = computed(() => aggregated.value.reduce((s, a) => s + a.totalIn + a.totalOut, 0))
+const totalIn = computed(() => aggregated.value.reduce((s, a) => s + a.totalIn, 0))
+const totalOut = computed(() => aggregated.value.reduce((s, a) => s + a.totalOut, 0))
+
 function formatNum(n) {
   if (!n && n !== 0) return '-'
   return Number(n).toLocaleString('ko-KR')
+}
+
+function formatTime(tm) {
+  if (!tm) return ''
+  const t = String(tm).padStart(4, '0')
+  return `${t.slice(0,2)}:${t.slice(2,4)}`
 }
 
 async function fetchData() {
   loading.value = true
   error.value = ''
   try {
-    const today = new Date()
-    const ymd = today.toISOString().slice(0, 10).replace(/-/g, '')
     const params = new URLSearchParams({
       key: API_KEY,
       type: 'json',
-      numOfRows: '1000',
-      pageNo: '1',
-      ymd,
     })
     const res = await fetch(`${API_URL}?${params}`)
-    if (!res.ok) throw new Error(`API 오류: ${res.status}`)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
-    if (data.code && data.code !== 'SUCCESS') throw new Error(data.message || 'API 호출 실패')
-
-    const list = data.list || []
+    if (data.code && data.code !== 'INFO-000' && data.code !== 'Success') {
+      throw new Error(data.message || `API 코드: ${data.code}`)
+    }
+    const list = data.trafficFive || data.list || []
     rawData.value = list.map(i => ({
-      gateNm: i.gateNm || i.sgName || '',
-      routeNm: i.routeNm || i.roadName || '',
-      dirType: i.dirType || i.directionType || '',
-      ymd: (i.ymd || '').replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3'),
-      hh: parseInt(i.hh || i.hour || '0', 10),
-      carVol: parseInt(i.carVol || i.trafficVolColumn1 || '0', 10),
-      busVol: parseInt(i.busVol || i.trafficVolColumn2 || '0', 10),
-      truckVol: parseInt(i.truckVol || i.trafficVolColumn3 || '0', 10),
-      totalVol: parseInt(i.totalVol || i.trafficVol || '0', 10),
+      unitName: (i.unitName || '').trim(),
+      unitCode: (i.unitCode || '').trim(),
+      exDivCode: i.exDivCode || '',
+      exDivName: i.exDivName || '',
+      inoutType: i.inoutType || '',
+      inoutName: i.inoutName || '',
+      tcsType: i.tcsType || '',
+      tcsName: i.tcsName || '',
+      carType: i.carType || '',
+      trafficAmout: parseInt(i.trafficAmout || '0', 10),
+      sumTm: i.sumTm || '',
+      sumDate: i.sumDate || '',
     }))
     page.value = 1
   } catch (e) {
@@ -216,15 +274,14 @@ async function fetchData() {
   }
 }
 
-onMounted(() => {
-  fetchData()
-})
+onMounted(() => fetchData())
 </script>
 
 <style scoped>
 .traffic-page {
   min-height: 100dvh;
   background: #f5f5f5;
+  padding-bottom: 40px;
 }
 
 .page-nav {
@@ -239,71 +296,64 @@ onMounted(() => {
   z-index: 10;
 }
 .btn-back {
-  background: none;
-  border: none;
+  background: none; border: none;
   color: #4D9BC6;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 14px; font-weight: 600;
   cursor: pointer;
 }
 .nav-title { font-size: 15px; font-weight: 700; }
 .nav-spacer { flex: 1; }
 
-.filter-bar {
+.gate-tabs {
   display: flex;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: 4px;
+  padding: 10px 12px;
+  overflow-x: auto;
   background: #fff;
   border-bottom: 1px solid #eee;
-  align-items: flex-end;
+  -webkit-overflow-scrolling: touch;
 }
-.filter-group { display: flex; flex-direction: column; gap: 2px; }
-.filter-group label { font-size: 10px; color: #999; font-weight: 600; }
-.filter-select {
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 13px;
-  background: #fff;
+.gate-tab {
+  display: flex; flex-direction: column; align-items: center;
+  background: #f5f5f5; border: none;
+  border-radius: 10px; padding: 8px 12px;
+  font-size: 12px; font-weight: 600; color: #666;
+  cursor: pointer; white-space: nowrap;
+  min-width: 52px;
+  transition: all 0.15s;
 }
-.btn-refresh {
-  margin-left: auto;
-  background: #1B355A;
-  color: #fff;
-  border: none;
-  padding: 9px 14px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
+.gate-tab.active { background: #1B355A; color: #fff; }
+.gate-emoji { font-size: 18px; margin-bottom: 2px; }
+
+.update-info {
+  text-align: center;
+  padding: 8px;
+  font-size: 12px;
+  color: #888;
+  background: #FFFBEB;
 }
-.btn-refresh:disabled { opacity: 0.5; }
 
 .summary-cards {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-  padding: 16px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 12px;
 }
 .summary-card {
-  background: #fff;
   border-radius: 12px;
-  padding: 14px;
+  padding: 12px 8px;
   text-align: center;
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
-.summary-label { font-size: 11px; color: #888; font-weight: 600; }
-.summary-value { font-size: 22px; font-weight: 800; color: #1B355A; margin-top: 4px; }
+.summary-card.total { background: #1B355A; color: #fff; }
+.summary-card.in { background: #DBEAFE; }
+.summary-card.out { background: #FEF3C7; }
+.summary-label { font-size: 10px; font-weight: 600; opacity: 0.8; }
+.summary-value { font-size: 20px; font-weight: 800; margin-top: 2px; }
 
-.loading {
-  text-align: center;
-  padding: 60px 20px;
-  color: #888;
-}
+.loading { text-align: center; padding: 60px 20px; color: #888; }
 .spinner {
-  width: 32px;
-  height: 32px;
+  width: 32px; height: 32px;
   border: 3px solid #e0e0e0;
   border-top-color: #1B355A;
   border-radius: 50%;
@@ -318,91 +368,69 @@ onMounted(() => {
   border: 1px solid #F59E0B;
   border-radius: 12px;
   padding: 16px;
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
+  display: flex; gap: 12px; align-items: flex-start;
 }
 .error-icon { font-size: 24px; flex-shrink: 0; }
 .error-title { font-weight: 700; color: #92400E; font-size: 14px; }
 .error-desc { font-size: 12px; color: #92400E; margin-top: 4px; }
 
-.chart-section { padding: 16px; }
-.section-title { font-size: 15px; font-weight: 700; color: #1B355A; margin-bottom: 12px; }
-
-.bar-chart {
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 140px;
+.gate-cards { padding: 0 12px; display: flex; flex-direction: column; gap: 10px; }
+.gate-card {
   background: #fff;
-  border-radius: 12px;
-  padding: 12px 8px 32px;
-  overflow-x: auto;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
-.bar-item {
-  flex: 1;
-  min-width: 28px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  height: 100%;
-  position: relative;
-  justify-content: flex-end;
+.gate-card-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 10px;
 }
-.bar-fill {
-  width: 70%;
-  background: linear-gradient(to top, #4D9BC6, #1B355A);
-  border-radius: 3px 3px 0 0;
-  min-height: 2px;
-  transition: height 0.3s;
-}
-.bar-value { font-size: 8px; color: #666; margin-top: 2px; }
-.bar-label { font-size: 9px; color: #aaa; }
+.gate-card-name { font-size: 16px; font-weight: 800; color: #1B355A; }
+.gate-card-type { font-size: 10px; font-weight: 600; color: #888; background: #f0f0f0; padding: 2px 8px; border-radius: 6px; }
+.gate-card-body { display: flex; gap: 12px; margin-bottom: 12px; }
+.gate-stat { display: flex; flex-direction: column; }
+.gate-stat.total { margin-left: auto; text-align: right; }
+.stat-label { font-size: 11px; color: #888; font-weight: 600; }
+.stat-value { font-size: 17px; font-weight: 700; color: #1B355A; }
 
-.table-section { padding: 0 16px 20px; }
+.car-type-bars { display: flex; flex-direction: column; gap: 4px; }
+.bar-row { display: flex; align-items: center; gap: 6px; }
+.bar-label { font-size: 10px; color: #888; width: 40px; text-align: right; }
+.bar-track { flex: 1; height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden; }
+.bar-fill-sm { height: 100%; background: linear-gradient(90deg, #4D9BC6, #1B355A); border-radius: 4px; }
+.bar-num { font-size: 10px; font-weight: 600; color: #666; min-width: 32px; }
+
+.detail-section { padding: 16px 12px; }
+.section-title { font-size: 15px; font-weight: 700; color: #1B355A; margin-bottom: 12px; }
 .data-list { display: flex; flex-direction: column; gap: 6px; }
 .data-row {
-  background: #fff;
-  border-radius: 10px;
-  padding: 12px 14px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  background: #fff; border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
 }
-.row-main { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-.row-gate { font-size: 14px; font-weight: 700; color: #1B355A; }
-.row-route { font-size: 11px; color: #888; }
-.row-dir { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px; }
+.row-main { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; flex-wrap: wrap; }
+.row-gate { font-size: 13px; font-weight: 700; color: #1B355A; }
+.row-type { font-size: 10px; color: #aaa; }
+.row-dir { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
 .row-dir.in { background: #DBEAFE; color: #1E40AF; }
 .row-dir.out { background: #FEF3C7; color: #92400E; }
-.row-time { font-size: 11px; color: #aaa; margin-bottom: 6px; }
-.row-volumes { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; }
-.vol-car { color: #3B82F6; }
-.vol-bus { color: #F59E0B; }
-.vol-truck { color: #6366F1; }
-.vol-total { font-weight: 700; color: #1B355A; }
+.row-tcs { font-size: 10px; color: #888; background: #f5f5f5; padding: 1px 6px; border-radius: 4px; }
+.row-meta { display: flex; gap: 8px; font-size: 11px; color: #666; align-items: center; }
+.row-vol { font-weight: 700; color: #1B355A; }
+.row-time { margin-left: auto; color: #aaa; font-size: 10px; }
 
 .pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 12px;
-  margin-top: 16px;
-  font-size: 13px;
-  color: #666;
+  display: flex; justify-content: center; align-items: center;
+  gap: 12px; margin-top: 16px;
+  font-size: 13px; color: #666;
 }
 .pagination button {
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 6px 14px;
-  font-size: 13px;
-  cursor: pointer;
+  background: #fff; border: 1px solid #ddd;
+  border-radius: 8px; padding: 6px 14px;
+  font-size: 13px; cursor: pointer;
 }
 .pagination button:disabled { opacity: 0.4; cursor: default; }
 
-.empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: #aaa;
-}
+.empty-state { text-align: center; padding: 60px 20px; color: #aaa; }
 .empty-icon { font-size: 48px; }
 </style>
