@@ -11,6 +11,11 @@ const routes = [
     name: 'Events',
     component: () => import('../views/EventsPage.vue'),
   },
+  {
+    path: '/traffic',
+    name: 'Traffic',
+    component: () => import('../views/TrafficPage.vue'),
+  },
 ]
 
 const router = createRouter({

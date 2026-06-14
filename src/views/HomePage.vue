@@ -1,8 +1,8 @@
 <template>
   <div class="home">
     <header class="home-header">
-      <h1 class="logo">🛣️ 휴게소 정보 허브</h1>
-      <p class="subtitle">전국 고속도로 휴게소 정보를 한눈에</p>
+      <h1 class="logo">🛣️ 고속도로 정보 허브</h1>
+      <p class="subtitle">전국 고속도로 정보를 한눈에</p>
     </header>
 
     <div class="card-grid">
@@ -11,6 +11,15 @@
         <div class="card-info">
           <div class="card-name">휴게소 이벤트</div>
           <div class="card-desc">전국 휴게소 진행 중인 이벤트 조회</div>
+        </div>
+        <div class="card-badge playable">GO</div>
+      </button>
+
+      <button class="info-card" @click="goTraffic">
+        <div class="card-icon">📊</div>
+        <div class="card-info">
+          <div class="card-name">수도권 관문 교통량</div>
+          <div class="card-desc">6대 관문 시간대별·차종별 통행량</div>
         </div>
         <div class="card-badge playable">GO</div>
       </button>
@@ -32,15 +41,6 @@
         </div>
         <div class="card-badge soon">SOON</div>
       </div>
-
-      <div class="info-card disabled">
-        <div class="card-icon">🅿️</div>
-        <div class="card-info">
-          <div class="card-name">주차장 현황</div>
-          <div class="card-desc">주차 가능 대수 및 혼잡도 (준비 중)</div>
-        </div>
-        <div class="card-badge soon">SOON</div>
-      </div>
     </div>
 
     <div class="footer-info">
@@ -54,6 +54,7 @@
 import { useRouter } from 'vue-router'
 const router = useRouter()
 function goEvents() { router.push('/events') }
+function goTraffic() { router.push('/traffic') }
 </script>
 
 <style scoped>
