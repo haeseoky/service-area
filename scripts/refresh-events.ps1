@@ -21,18 +21,23 @@ $json = $data | ConvertTo-Json -Depth 5
 [System.IO.File]::WriteAllText((Join-Path $publicDir "events-data.json"), $json, [System.Text.UTF8Encoding]::new($false))
 Write-Host "events-data.json 저장 완료"
 
-# 3. 빌드
+# 3. Git commit (배포 전 커밋 필수 — Vercel/Cloudflare가 uncommitted changes 거부)
+git -C $projectDir add public/events-data.json
+git -C $projectDir commit -m "chore: update events-data.json (daily refresh $(Get-Date -Format 'MM-dd'))" 2>&1 | Write-Host
+Write-Host "Git commit 완료"
+
+# 4. 빌드
 Push-Location $projectDir
 npm run build 2>&1 | Select-Object -Last 3
 Write-Host "빌드 완료"
 
-# 4. Cloudflare Pages 배포
+# 5. Cloudflare Pages 배포
 $t = Get-Content "$env:USERPROFILE\.openclaw\workspace\.api-tokens.json" | ConvertFrom-Json
 $env:CLOUDFLARE_API_TOKEN = $t.cloudflare_api_token
 $env:CLOUDFLARE_ACCOUNT_ID = "815f1b29f4eb5efb093076fdf6391e94"
 npx wrangler pages deploy dist --project-name service-area-nutalk 2>&1 | Select-Object -Last 5
 Pop-Location
 
-# 5. 결과 보고
+# 6. 결과 보고
 $active = ($data.list | Where-Object { $_.stime -le (Get-Date -Format 'yyyy-MM-dd') -and $_.etime -ge (Get-Date -Format 'yyyy-MM-dd') }).Count
 Write-Host "=== 갱신 완료: 전체 $($data.count)건, 진행 중 ${active}건 ==="
