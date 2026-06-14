@@ -244,11 +244,17 @@ async function fetchData() {
       key: API_KEY,
       type: 'json',
     })
-    const res = await fetch(`${API_URL}?${params}`)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const data = await res.json()
-    if (data.code && data.code !== 'INFO-000' && data.code !== 'Success') {
-      throw new Error(data.message || `API 코드: ${data.code}`)
+    let data = null
+    // API가 간헐적으로 ERROR를 반환하는 경우 재시도 (최대 3회)
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const res = await fetch(`${API_URL}?${params}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      data = await res.json()
+      if (data.code === 'SUCCESS' || data.code === 'INFO-000' || data.code === 'Success') break
+      if (attempt < 2) await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
+    }
+    if (!data || (data.code && data.code !== 'SUCCESS' && data.code !== 'INFO-000' && data.code !== 'Success')) {
+      throw new Error(data?.message || `API 코드: ${data?.code || 'unknown'}`)
     }
     const list = data.trafficFive || data.list || []
     rawData.value = list.map(i => ({
