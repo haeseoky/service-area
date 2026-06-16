@@ -32,6 +32,11 @@ const routes = [
     component: () => import('../views/WeatherPage.vue'),
   },
   {
+    path: '/air-quality',
+    name: 'AirQuality',
+    component: () => import('../views/AirQualityPage.vue'),
+  },
+  {
     path: '/search',
     name: 'Search',
     component: () => import('../views/SearchPage.vue'),

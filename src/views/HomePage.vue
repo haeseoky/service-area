@@ -60,6 +60,15 @@
         </div>
         <div class="card-badge playable">GO</div>
       </button>
+
+      <button class="info-card" @click="goAirQuality">
+        <div class="card-icon">🌬️</div>
+        <div class="card-info">
+          <div class="card-name">고속도로 대기질</div>
+          <div class="card-desc">PM10·PM2.5·자외선·대기성분 정보</div>
+        </div>
+        <div class="card-badge playable">GO</div>
+      </button>
     </div>
 
     <div class="footer-info">
@@ -78,6 +87,7 @@ function goTraffic() { router.push('/traffic') }
 function goBrands() { router.push('/brands') }
 function goFacilities() { router.push('/facilities') }
 function goWeather() { router.push('/weather') }
+function goAirQuality() { router.push('/air-quality') }
 </script>
 
 <style scoped>

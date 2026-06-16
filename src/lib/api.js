@@ -291,6 +291,74 @@ export async function searchRestArea(query) {
   })
 }
 
+// ─── 고속도로 대기질 (Open-Meteo Air Quality, 무료/키 불필요) ───
+const AIR_QUALITY_BASE = 'https://air-quality-api.open-meteo.com/v1/air-quality'
+
+export async function fetchHighwayAirQuality() {
+  const results = await Promise.all(
+    HIGHWAY_POINTS.map(async (p) => {
+      try {
+        const url = `${AIR_QUALITY_BASE}?latitude=${p.lat}&longitude=${p.lon}&current=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone,uv_index,european_aqi&timezone=Asia/Seoul`
+        const res = await fetch(url)
+        if (!res.ok) throw new Error('air quality fetch failed')
+        const d = await res.json()
+        return {
+          ...p,
+          pm10: Math.round(d.current.pm10 || 0),
+          pm25: Math.round((d.current.pm2_5 || 0) * 10) / 10,
+          co: Math.round(d.current.carbon_monoxide || 0),
+          no2: Math.round(d.current.nitrogen_dioxide || 0),
+          so2: Math.round(d.current.sulphur_dioxide || 0),
+          o3: Math.round(d.current.ozone || 0),
+          uvIndex: Math.round(d.current.uv_index || 0),
+          eaqi: d.current.european_aqi || 0,
+        }
+      } catch {
+        return { ...p, pm10: null }
+      }
+    })
+  )
+  return results
+}
+
+// 대기질 등급 (한국 환경부 기준 PM10)
+export function getPM10Grade(pm10) {
+  if (pm10 == null) return { label: '-', color: '#ccc', emoji: '❓' }
+  if (pm10 <= 30) return { label: '좋음', color: '#22C55E', emoji: '😊' }
+  if (pm10 <= 80) return { label: '보통', color: '#EAB308', emoji: '😐' }
+  if (pm10 <= 150) return { label: '나쁨', color: '#F97316', emoji: '😷' }
+  return { label: '매우나쁨', color: '#EF4444', emoji: '🤢' }
+}
+
+// 대기질 등급 (한국 환경부 기준 PM2.5)
+export function getPM25Grade(pm25) {
+  if (pm25 == null) return { label: '-', color: '#ccc', emoji: '❓' }
+  if (pm25 <= 15) return { label: '좋음', color: '#22C55E', emoji: '😊' }
+  if (pm25 <= 35) return { label: '보통', color: '#EAB308', emoji: '😐' }
+  if (pm25 <= 75) return { label: '나쁨', color: '#F97316', emoji: '😷' }
+  return { label: '매우나쁨', color: '#EF4444', emoji: '🤢' }
+}
+
+// European AQI → 한국식 등급 매핑
+export function getEAQIGrade(eaqi) {
+  if (eaqi == null) return { label: '-', color: '#ccc', emoji: '❓' }
+  if (eaqi <= 20) return { label: '좋음', color: '#22C55E', emoji: '😊' }
+  if (eaqi <= 40) return { label: '보통', color: '#EAB308', emoji: '😐' }
+  if (eaqi <= 60) return { label: '나쁨', color: '#F97316', emoji: '😷' }
+  if (eaqi <= 80) return { label: '매우나쁨', color: '#EF4444', emoji: '🤢' }
+  return { label: '최악', color: '#991B1B', emoji: '☠️' }
+}
+
+// 자외선 지수 등급
+export function getUVGrade(uv) {
+  if (uv == null) return { label: '-', color: '#ccc' }
+  if (uv <= 2) return { label: '낮음', color: '#22C55E' }
+  if (uv <= 5) return { label: '보통', color: '#EAB308' }
+  if (uv <= 7) return { label: '높음', color: '#F97316' }
+  if (uv <= 10) return { label: '매우높음', color: '#EF4444' }
+  return { label: '위험', color: '#991B1B' }
+}
+
 // ─── 전국 교통량 (trafficAll) ───
 const TRAFFIC_ALL_URL = `${API_BASE}/trafficapi/trafficAll`
 
