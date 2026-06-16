@@ -703,6 +703,150 @@ export function getFloodTrend(point) {
   return { text: '안정', icon: '➡️', color: '#888' }
 }
 
+// ─── 고속도로 노면 상태 예측 (Open-Meteo Soil API, 무료/키 불필요) ───
+// 지표면 온도(0cm)·지중 온도·표층 수분으로 노면 결빙/과열/수막 형성 위험 예측
+export async function fetchRoadSurface() {
+  const params = [
+    'soil_temperature_0cm',
+    'soil_temperature_6cm',
+    'soil_temperature_18cm',
+    'soil_moisture_0_1cm',
+    'soil_moisture_1_3cm',
+    'temperature_2m',
+    'precipitation',
+    'weather_code',
+    'wind_speed_10m',
+    'cloud_cover',
+  ].join(',')
+
+  const results = await Promise.all(
+    HIGHWAY_POINTS.map(async (p) => {
+      try {
+        // 현재 + 24시간 시간별 예보
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&hourly=${params}&timezone=Asia/Seoul&forecast_days=2`
+        const res = await fetch(url)
+        if (!res.ok) throw new Error('soil fetch failed')
+        const d = await res.json()
+
+        const now = new Date()
+        const nowIdx = d.hourly.time.findIndex(t => t === now.toISOString().slice(0, 13) + ':00')
+        const idx = nowIdx >= 0 ? nowIdx : new Date().getHours()
+
+        const surface = d.hourly.soil_temperature_0cm
+        const deep = d.hourly.soil_temperature_6cm
+        const deeper = d.hourly.soil_temperature_18cm
+        const moist = d.hourly.soil_moisture_0_1cm
+        const moistDeep = d.hourly.soil_moisture_1_3cm
+
+        // 다음 24시간 데이터
+        const next24 = []
+        for (let i = idx; i < Math.min(idx + 24, d.hourly.time.length); i++) {
+          next24.push({
+            time: d.hourly.time[i],
+            surfaceTemp: surface[i] != null ? Math.round(surface[i] * 10) / 10 : null,
+            deepTemp: deep[i] != null ? Math.round(deep[i] * 10) / 10 : null,
+            moisture: moist[i] != null ? Math.round(moist[i] * 1000) / 10 : null,
+            airTemp: d.hourly.temperature_2m[i] != null ? Math.round(d.hourly.temperature_2m[i]) : null,
+            precip: d.hourly.precipitation[i] || 0,
+          })
+        }
+
+        const currentSurface = surface[idx] != null ? Math.round(surface[idx] * 10) / 10 : null
+        const currentMoist = moist[idx] != null ? Math.round(moist[idx] * 1000) / 10 : null
+        const currentAir = d.hourly.temperature_2m[idx] != null ? Math.round(d.hourly.temperature_2m[idx]) : null
+
+        return {
+          ...p,
+          surfaceTemp: currentSurface,
+          deepTemp: deep[idx] != null ? Math.round(deep[idx] * 10) / 10 : null,
+          deeperTemp: deeper[idx] != null ? Math.round(deeper[idx] * 10) / 10 : null,
+          moisture: currentMoist,
+          moistureDeep: moistDeep[idx] != null ? Math.round(moistDeep[idx] * 1000) / 10 : null,
+          airTemp: currentAir,
+          precip: d.hourly.precipitation[idx] || 0,
+          weatherCode: d.hourly.weather_code[idx] || 0,
+          windSpeed: d.hourly.wind_speed_10m[idx] ? Math.round(d.hourly.wind_speed_10m[idx]) : 0,
+          cloudCover: d.hourly.cloud_cover[idx] || 0,
+          next24,
+        }
+      } catch {
+        return { ...p, surfaceTemp: null }
+      }
+    })
+  )
+  return results
+}
+
+// 노면 결빙 위험도 계산
+export function getRoadSurfaceRisk(point) {
+  if (point.surfaceTemp == null) return { level: 'unknown', label: '알 수 없음', emoji: '❓', color: '#ccc', risks: [] }
+
+  const risks = []
+  let score = 100
+
+  // 결빙 위험 (표면 온도 0도 이하)
+  if (point.surfaceTemp <= -2) {
+    score -= 45; risks.push({ icon: '🧊', msg: `노면 결빙 위험 (${point.surfaceTemp}°C)` })
+  } else if (point.surfaceTemp <= 1) {
+    score -= 30; risks.push({ icon: '⚠️', msg: `결빙 주의 (${point.surfaceTemp}°C)` })
+  } else if (point.surfaceTemp <= 3) {
+    score -= 12; risks.push({ icon: '❄️', msg: `저온 노면 (${point.surfaceTemp}°C)` })
+  }
+
+  // 과열 위험 (여름철 아스팔트)
+  if (point.surfaceTemp >= 55) {
+    score -= 30; risks.push({ icon: '🔥', msg: `노면 과열 (${point.surfaceTemp}°C) — 타이어 주의` })
+  } else if (point.surfaceTemp >= 45) {
+    score -= 15; risks.push({ icon: '🥵', msg: `고온 노면 (${point.surfaceTemp}°C)` })
+  }
+
+  // 수막 형성 (높은 수분 + 강수)
+  if (point.moisture != null && point.moisture >= 0.35 && point.precip >= 3) {
+    score -= 25; risks.push({ icon: '💦', msg: `수막 형성 위험 (수분 ${Math.round(point.moisture * 100)}%, 강수 ${point.precip}mm)` })
+  } else if (point.moisture != null && point.moisture >= 0.30 && point.precip >= 1) {
+    score -= 12; risks.push({ icon: '💧', msg: `젖은 노면 (수분 ${Math.round(point.moisture * 100)}%)` })
+  }
+
+  // 공기-표면 온도 차이 (결로 가능성)
+  if (point.airTemp != null) {
+    const diff = point.surfaceTemp - point.airTemp
+    if (diff <= -5 && point.surfaceTemp <= 5) {
+      score -= 10; risks.push({ icon: '🌫️', msg: `서리/결로 가능성 (기온 ${point.airTemp}°C, 노면 ${point.surfaceTemp}°C)` })
+    }
+  }
+
+  score = Math.max(0, Math.min(100, score))
+
+  let level, label, emoji, color
+  if (score >= 85) { level = 'safe'; label = '양호'; emoji = '✅'; color = '#22C55E' }
+  else if (score >= 65) { level = 'caution'; label = '주의'; emoji = '⚠️'; color = '#EAB308' }
+  else if (score >= 40) { level = 'warning'; label = '위험'; emoji = '🔶'; color = '#F97316' }
+  else { level = 'danger'; label = '매우 위험'; emoji = '🚨'; color = '#EF4444' }
+
+  return { score, level, label, emoji, color, risks }
+}
+
+// 노면 온도 등급
+export function getSurfaceTempGrade(temp) {
+  if (temp == null) return { label: '-', color: '#ccc' }
+  if (temp <= 0) return { label: '결빙', color: '#3B82F6' }
+  if (temp <= 5) return { label: '저온', color: '#06B6D4' }
+  if (temp <= 20) return { label: '정상', color: '#22C55E' }
+  if (temp <= 35) return { label: '온난', color: '#EAB308' }
+  if (temp <= 45) return { label: '고온', color: '#F97316' }
+  return { label: '과열', color: '#EF4444' }
+}
+
+// 노면 수분 등급
+export function getMoistureGrade(moist) {
+  if (moist == null) return { label: '-', color: '#ccc' }
+  const pct = Math.round(moist * 100)
+  if (pct >= 40) return { label: '포화', color: '#3B82F6' }
+  if (pct >= 30) return { label: '습윤', color: '#06B6D4' }
+  if (pct >= 20) return { label: '정상', color: '#22C55E' }
+  return { label: '건조', color: '#EAB308' }
+}
+
 // 전국 교통량 차종 코드 → 이름
 export const CAR_TYPE_MAP = {
   '1': { label: '1종(승용차)', short: '승용차', emoji: '🚗', color: '#4D9BC6' },

@@ -105,6 +105,15 @@
         </div>
         <div class="card-badge playable">GO</div>
       </button>
+
+      <button class="info-card" @click="goRoadSurface">
+        <div class="card-icon">🌡️</div>
+        <div class="card-info">
+          <div class="card-name">노면 상태 예측</div>
+          <div class="card-desc">표면 온도·수분·결빙/과열 위험 분석 (Open-Meteo Soil API)</div>
+        </div>
+        <div class="card-badge playable">GO</div>
+      </button>
     </div>
 
     <div class="footer-info">
@@ -128,6 +137,7 @@ function goWeather() { router.push('/weather') }
 function goAirQuality() { router.push('/air-quality') }
 function goWeeklyWeather() { router.push('/weekly-weather') }
 function goFloodRisk() { router.push('/flood-risk') }
+function goRoadSurface() { router.push('/road-surface') }
 </script>
 
 <style scoped>
