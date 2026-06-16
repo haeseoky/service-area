@@ -96,6 +96,15 @@
         </div>
         <div class="card-badge playable">GO</div>
       </button>
+
+      <button class="info-card" @click="goFloodRisk">
+        <div class="card-icon">🌊</div>
+        <div class="card-info">
+          <div class="card-name">하천 범람 위험</div>
+          <div class="card-desc">고속도로 인근 하천 유량·홍수 예측 (Open-Meteo Flood API)</div>
+        </div>
+        <div class="card-badge playable">GO</div>
+      </button>
     </div>
 
     <div class="footer-info">
@@ -118,6 +127,7 @@ function goFacilities() { router.push('/facilities') }
 function goWeather() { router.push('/weather') }
 function goAirQuality() { router.push('/air-quality') }
 function goWeeklyWeather() { router.push('/weekly-weather') }
+function goFloodRisk() { router.push('/flood-risk') }
 </script>
 
 <style scoped>

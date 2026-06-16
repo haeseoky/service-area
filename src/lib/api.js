@@ -611,6 +611,98 @@ export function aggregateRouteByUnit(list) {
   return Array.from(map.values())
 }
 
+// ─── 고속도로 하천 범람 위험 (Open-Meteo Flood API, 무료/키 불필요) ───
+// 고속도로 주요 지점 인근 하천의 유량(discharge) 예측
+export const FLOOD_POINTS = [
+  { name: '서울 (한강)', lat: 37.5145, lon: 126.9682, desc: '경부선 출발 · 한강', river: '한강' },
+  { name: '수원 (한강본류)', lat: 37.263, lon: 127.028, desc: '경기 남부', river: '한강' },
+  { name: '천안', lat: 36.815, lon: 127.114, desc: '충남 거점', river: '갈천' },
+  { name: '대전 (금강)', lat: 36.354, lon: 127.376, desc: '중부 교차점 · 금강', river: '금강' },
+  { name: '대구 (낙동강)', lat: 35.871, lon: 128.601, desc: '영남 거점 · 낙동강', river: '낙동강' },
+  { name: '부산 (낙동강하구)', lat: 35.180, lon: 128.931, desc: '남해 종점 · 낙동강', river: '낙동강' },
+  { name: '광주 (영산강)', lat: 35.160, lon: 126.852, desc: '호남 거점 · 영산강', river: '영산강' },
+  { name: '전주 (만경강)', lat: 35.824, lon: 127.148, desc: '호남선', river: '만경강' },
+  { name: '강릉 (남대천)', lat: 37.751, lon: 128.876, desc: '영동선', river: '남대천' },
+  { name: '원주 (섬강)', lat: 37.342, lon: 127.920, desc: '영동선 거점', river: '섬강' },
+  { name: '춘천 (북한강)', lat: 37.881, lon: 127.730, desc: '중앙선', river: '북한강' },
+]
+
+const FLOOD_API = 'https://flood-api.open-meteo.com/v1/flood'
+
+export async function fetchHighwayFloodRisk() {
+  const results = await Promise.all(
+    FLOOD_POINTS.map(async (p) => {
+      try {
+        const url = `${FLOOD_API}?latitude=${p.lat}&longitude=${p.lon}&daily=river_discharge&past_days=3&forecast_days=7`
+        const res = await fetch(url)
+        if (!res.ok) throw new Error('flood fetch failed')
+        const d = await res.json()
+        const times = d.daily.time || []
+        const discharges = d.daily.river_discharge || []
+
+        const todayIdx = times.indexOf(new Date().toISOString().slice(0, 10))
+        const safeIdx = todayIdx >= 0 ? todayIdx : 3
+
+        const current = discharges[safeIdx] ?? 0
+        const forecast = discharges.slice(safeIdx + 1, safeIdx + 8)
+        const past = discharges.slice(Math.max(0, safeIdx - 3), safeIdx)
+        const maxForecast = forecast.length > 0 ? Math.max(...forecast) : current
+        const minForecast = forecast.length > 0 ? Math.min(...forecast) : current
+
+        // 위험도 계산: 절대 기준 + 변화율
+        const surgeRatio = current > 0.1 ? maxForecast / current : 1
+
+        return {
+          ...p,
+          current: Math.round(current * 10) / 10,
+          forecast: forecast.map(v => Math.round(v * 10) / 10),
+          forecastDates: times.slice(safeIdx + 1, safeIdx + 8),
+          past: past.map(v => Math.round(v * 10) / 10),
+          pastDates: times.slice(Math.max(0, safeIdx - 3), safeIdx),
+          maxForecast: Math.round(maxForecast * 10) / 10,
+          minForecast: Math.round(minForecast * 10) / 10,
+          surgeRatio: Math.round(surgeRatio * 10) / 10,
+        }
+      } catch {
+        return { ...p, current: null }
+      }
+    })
+  )
+  return results
+}
+
+// 하천 범람 위험 등급
+export function getFloodGrade(point) {
+  if (point.current == null) return { level: 'unknown', label: '알 수 없음', emoji: '❓', color: '#ccc' }
+
+  const { current, maxForecast, surgeRatio } = point
+  const peak = Math.max(current, maxForecast)
+
+  // 절대 기준 (m³/s)
+  if (peak >= 2000) return { level: 'danger', label: '위험', emoji: '🚨', color: '#EF4444' }
+  if (peak >= 500) return { level: 'warning', label: '경고', emoji: '🔶', color: '#F97316' }
+
+  // 급격한 증가 (홍수 예보)
+  if (surgeRatio >= 10) return { level: 'danger', label: '위험', emoji: '🚨', color: '#EF4444' }
+  if (surgeRatio >= 5) return { level: 'warning', label: '경고', emoji: '🔶', color: '#F97316' }
+  if (surgeRatio >= 2) return { level: 'caution', label: '주의', emoji: '⚠️', color: '#EAB308' }
+
+  // 일반 기준
+  if (peak >= 100) return { level: 'caution', label: '주의', emoji: '⚠️', color: '#EAB308' }
+  return { level: 'safe', label: '정상', emoji: '✅', color: '#22C55E' }
+}
+
+// 위험도 추세 텍스트
+export function getFloodTrend(point) {
+  if (point.current == null || !point.forecast?.length) return null
+  const avgForecast = point.forecast.reduce((a, b) => a + b, 0) / point.forecast.length
+  const diff = avgForecast - point.current
+  if (diff > point.current * 0.5) return { text: '급증 예상', icon: '🔺', color: '#EF4444' }
+  if (diff > 0) return { text: '증가 추세', icon: '🔼', color: '#F97316' }
+  if (diff < -point.current * 0.3) return { text: '감소 추세', icon: '🔽', color: '#22C55E' }
+  return { text: '안정', icon: '➡️', color: '#888' }
+}
+
 // 전국 교통량 차종 코드 → 이름
 export const CAR_TYPE_MAP = {
   '1': { label: '1종(승용차)', short: '승용차', emoji: '🚗', color: '#4D9BC6' },

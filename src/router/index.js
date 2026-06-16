@@ -52,6 +52,11 @@ const routes = [
     component: () => import('../views/DrivingSafetyPage.vue'),
   },
   {
+    path: '/flood-risk',
+    name: 'FloodRisk',
+    component: () => import('../views/FloodRiskPage.vue'),
+  },
+  {
     path: '/search',
     name: 'Search',
     component: () => import('../views/SearchPage.vue'),
