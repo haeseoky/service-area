@@ -16,6 +16,16 @@ const routes = [
     name: 'Traffic',
     component: () => import('../views/TrafficPage.vue'),
   },
+  {
+    path: '/brands',
+    name: 'Brands',
+    component: () => import('../views/BrandPage.vue'),
+  },
+  {
+    path: '/facilities',
+    name: 'Facilities',
+    component: () => import('../views/ConvPage.vue'),
+  },
 ]
 
 const router = createRouter({

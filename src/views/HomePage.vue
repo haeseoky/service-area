@@ -24,23 +24,23 @@
         <div class="card-badge playable">GO</div>
       </button>
 
-      <div class="info-card disabled">
-        <div class="card-icon">⛽</div>
+      <button class="info-card" @click="goBrands">
+        <div class="card-icon">🏪</div>
         <div class="card-info">
-          <div class="card-name">주유소 가격</div>
-          <div class="card-desc">휴게소별 유류 가격 정보 (준비 중)</div>
+          <div class="card-name">브랜드 매장</div>
+          <div class="card-desc">휴게소별 입점 브랜드 (할리스, CU, 롯데리아 등)</div>
         </div>
-        <div class="card-badge soon">SOON</div>
-      </div>
+        <div class="card-badge playable">GO</div>
+      </button>
 
-      <div class="info-card disabled">
-        <div class="card-icon">🍽️</div>
+      <button class="info-card" @click="goFacilities">
+        <div class="card-icon">🛎️</div>
         <div class="card-info">
-          <div class="card-name">음식 메뉴</div>
-          <div class="card-desc">휴게소별 식당 메뉴 정보 (준비 중)</div>
+          <div class="card-name">편의시설</div>
+          <div class="card-desc">수유실, 샤워실, 경정비 등 편의시설 검색</div>
         </div>
-        <div class="card-badge soon">SOON</div>
-      </div>
+        <div class="card-badge playable">GO</div>
+      </button>
     </div>
 
     <div class="footer-info">
@@ -55,6 +55,8 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 function goEvents() { router.push('/events') }
 function goTraffic() { router.push('/traffic') }
+function goBrands() { router.push('/brands') }
+function goFacilities() { router.push('/facilities') }
 </script>
 
 <style scoped>
