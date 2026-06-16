@@ -26,6 +26,16 @@ const routes = [
     name: 'Facilities',
     component: () => import('../views/ConvPage.vue'),
   },
+  {
+    path: '/weather',
+    name: 'Weather',
+    component: () => import('../views/WeatherPage.vue'),
+  },
+  {
+    path: '/search',
+    name: 'Search',
+    component: () => import('../views/SearchPage.vue'),
+  },
 ]
 
 const router = createRouter({

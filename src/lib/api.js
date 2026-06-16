@@ -158,3 +158,147 @@ export const FACILITY_ICONS = {
 export function getFacilityIcon(name) {
   return FACILITY_ICONS[name] || '📍'
 }
+
+// ─── 고속도로 날씨 (Open-Meteo, 무료/키 불필요) ───
+// 주요 고속도로 지점 좌표
+export const HIGHWAY_POINTS = [
+  { name: '서울 (경부선)', lat: 37.497, lon: 127.027, desc: '수도권 출발' },
+  { name: '수원', lat: 37.263, lon: 127.028, desc: '경기 남부' },
+  { name: '천안', lat: 36.815, lon: 127.114, desc: '충남 거점' },
+  { name: '대전', lat: 36.354, lon: 127.376, desc: '중부 교차점' },
+  { name: '대구', lat: 35.871, lon: 128.601, desc: '영남 거점' },
+  { name: '부산', lat: 35.180, lon: 128.931, desc: '남해 종점' },
+  { name: '광주', lat: 35.160, lon: 126.852, desc: '호남 거점' },
+  { name: '전주', lat: 35.824, lon: 127.148, desc: '호남선' },
+  { name: '강릉', lat: 37.751, lon: 128.876, desc: '영동선' },
+  { name: '원주', lat: 37.342, lon: 127.920, desc: '영동선 거점' },
+  { name: '춘천', lat: 37.881, lon: 127.730, desc: '중앙선' },
+]
+
+export async function fetchHighwayWeather() {
+  const results = await Promise.all(
+    HIGHWAY_POINTS.map(async (p) => {
+      try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,precipitation&hourly=precipitation_probability&timezone=Asia/Seoul&forecast_days=1`
+        const res = await fetch(url)
+        if (!res.ok) throw new Error('weather fetch failed')
+        const d = await res.json()
+        return {
+          ...p,
+          temp: Math.round(d.current.temperature_2m),
+          humidity: d.current.relative_humidity_2m,
+          wind: Math.round(d.current.wind_speed_10m),
+          precip: d.current.precipitation || 0,
+          weatherCode: d.current.weather_code,
+          rainProb: d.hourly?.precipitation_probability?.[new Date().getHours()] || 0,
+        }
+      } catch {
+        return { ...p, temp: null }
+      }
+    })
+  )
+  return results
+}
+
+export const WEATHER_ICONS = {
+  0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️',
+  45: '🌫️', 48: '🌫️',
+  51: '🌦️', 53: '🌦️', 55: '🌧️',
+  56: '🌧️', 57: '🌧️',
+  61: '🌧️', 63: '🌧️', 65: '⛈️',
+  66: '🌧️', 67: '⛈️',
+  71: '🌨️', 73: '🌨️', 75: '❄️',
+  77: '❄️',
+  80: '🌦️', 81: '🌧️', 82: '⛈️',
+  85: '🌨️', 86: '❄️',
+  95: '⛈️', 96: '⛈️', 99: '⛈️',
+}
+
+export function getWeatherIcon(code) {
+  return WEATHER_ICONS[code] || '🌡️'
+}
+
+export const WEATHER_DESC = {
+  0: '맑음', 1: '대체 맑음', 2: '부분 흐림', 3: '흐림',
+  45: '안개', 48: '서리 안개',
+  51: '약한 이슬비', 53: '이슬비', 55: '강한 이슬비',
+  56: '약한 어는 비', 57: '강한 어는 비',
+  61: '약한 비', 63: '비', 65: '강한 비',
+  66: '약한 어는 비', 67: '강한 어는 비',
+  71: '약한 눈', 73: '눈', 75: '강한 눈',
+  77: '싸락눈',
+  80: '약한 소나기', 81: '소나기', 82: '강한 소나기',
+  85: '약한 눈 소나기', 86: '강한 눈 소나기',
+  95: '천둥번개', 96: '우박 천둥', 99: '강한 우박 천둥',
+}
+
+export function getWeatherDesc(code) {
+  return WEATHER_DESC[code] || '-'
+}
+
+// ─── 휴게소 통합 검색 ───
+// 모든 데이터 소스를 통합해서 휴게소명으로 검색
+export async function searchRestArea(query) {
+  if (!query || query.trim().length < 2) return null
+
+  const q = query.trim()
+  const KEY = API_KEY
+
+  // 병렬로 모든 API 호출
+  const [eventsRes, brandsRes, convsRes] = await Promise.allSettled([
+    fetch(`${EVENT_URL}?key=${KEY}&type=json&numOfRows=1000&stdRestNm=${encodeURIComponent(q)}`).then(r => r.json()),
+    fetch(`${BRAND_URL}?key=${KEY}&type=json&numOfRows=1000&stdRestNm=${encodeURIComponent(q)}`).then(r => r.json()),
+    fetch(`${CONV_URL}?key=${KEY}&type=json&numOfRows=2000&stdRestNm=${encodeURIComponent(q)}`).then(r => r.json()),
+  ])
+
+  const events = eventsRes.status === 'fulfilled' ? (eventsRes.value.list || []) : []
+  const brands = brandsRes.status === 'fulfilled' ? (brandsRes.value.list || []) : []
+  const facilities = convsRes.status === 'fulfilled' ? (convsRes.value.list || []) : []
+
+  // 휴게소별로 통합
+  const areaMap = new Map()
+
+  for (const e of events) {
+    if (!areaMap.has(e.stdRestNm)) {
+      areaMap.set(e.stdRestNm, { name: e.stdRestNm, route: e.routeNm, addr: e.svarAddr, events: [], brands: [], facilities: [] })
+    }
+    areaMap.get(e.stdRestNm).events.push(e)
+  }
+
+  for (const b of brands) {
+    if (!areaMap.has(b.stdRestNm)) {
+      areaMap.set(b.stdRestNm, { name: b.stdRestNm, route: b.routeNm, addr: b.svarAddr, events: [], brands: [], facilities: [] })
+    }
+    areaMap.get(b.stdRestNm).brands.push(b)
+  }
+
+  for (const c of facilities) {
+    if (!areaMap.has(c.stdRestNm)) {
+      areaMap.set(c.stdRestNm, { name: c.stdRestNm, route: c.routeNm, addr: c.svarAddr, events: [], brands: [], facilities: [] })
+    }
+    areaMap.get(c.stdRestNm).facilities.push(c)
+  }
+
+  // 활성 이벤트 필터
+  const today = new Date().toISOString().slice(0, 10)
+  for (const area of areaMap.values()) {
+    area.activeEvents = area.events.filter(e => e.stime <= today && e.etime >= today)
+  }
+
+  return Array.from(areaMap.values()).sort((a, b) => {
+    // 이벤트 > 브랜드 > 시설 순으로 우선순위
+    return (b.activeEvents.length + b.brands.length + b.facilities.length) - (a.activeEvents.length + a.brands.length + a.facilities.length)
+  })
+}
+
+// ─── 전국 교통량 (trafficAll) ───
+const TRAFFIC_ALL_URL = `${API_BASE}/trafficapi/trafficAll`
+
+export async function fetchTrafficAll() {
+  const params = new URLSearchParams({ key: API_KEY, type: 'json', numOfRows: '200' })
+  const res = await fetch(`${TRAFFIC_ALL_URL}?${params}`)
+  if (!res.ok) throw new Error(`API 오류: ${res.status}`)
+  const data = await res.json()
+  if (data.code !== 'SUCCESS') throw new Error(data.message || 'API 호출 실패')
+  return data
+}

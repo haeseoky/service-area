@@ -6,6 +6,16 @@
     </header>
 
     <div class="card-grid">
+      <!-- 🔍 통합검색 (강조) -->
+      <button class="info-card search-card" @click="goSearch">
+        <div class="card-icon">🔍</div>
+        <div class="card-info">
+          <div class="card-name">휴게소 통합검색</div>
+          <div class="card-desc">이벤트·브랜드·편의시설 한번에 검색</div>
+        </div>
+        <div class="card-badge playable">GO</div>
+      </button>
+
       <button class="info-card" @click="goEvents">
         <div class="card-icon">🎉</div>
         <div class="card-info">
@@ -41,10 +51,19 @@
         </div>
         <div class="card-badge playable">GO</div>
       </button>
+
+      <button class="info-card" @click="goWeather">
+        <div class="card-icon">🌤️</div>
+        <div class="card-info">
+          <div class="card-name">고속도로 날씨</div>
+          <div class="card-desc">전국 주요 지점 실시간 날씨</div>
+        </div>
+        <div class="card-badge playable">GO</div>
+      </button>
     </div>
 
     <div class="footer-info">
-      <p>🚀 더 많은 정보가 추가됩니다!</p>
+      <p>🚀 공공 데이터로 운영됩니다</p>
       <p class="footer-link">service-area.nutalk.co.kr</p>
     </div>
   </div>
@@ -53,22 +72,24 @@
 <script setup>
 import { useRouter } from 'vue-router'
 const router = useRouter()
+function goSearch() { router.push('/search') }
 function goEvents() { router.push('/events') }
 function goTraffic() { router.push('/traffic') }
 function goBrands() { router.push('/brands') }
 function goFacilities() { router.push('/facilities') }
+function goWeather() { router.push('/weather') }
 </script>
 
 <style scoped>
 .home {
   min-height: 100dvh;
-  background: linear-gradient(180deg, #1B355A 0%, #2A4A72 35%, #f5f5f5 35%);
+  background: linear-gradient(180deg, #1B355A 0%, #2A4A72 30%, #f5f5f5 30%);
   padding-bottom: 40px;
 }
 
 .home-header {
   text-align: center;
-  padding: 40px 20px 28px;
+  padding: 40px 20px 24px;
   color: #fff;
 }
 
@@ -99,8 +120,15 @@ function goFacilities() { router.push('/facilities') }
   width: 100%;
 }
 .info-card:active { transform: scale(0.98); }
-.info-card.disabled { cursor: default; opacity: 0.6; }
-.info-card.disabled:active { transform: none; }
+
+.search-card {
+  background: linear-gradient(135deg, #1B355A 0%, #2A4A72 100%);
+  border: 2px solid #4D9BC6;
+}
+.search-card .card-name { color: #fff; }
+.search-card .card-desc { color: #a8c4e0; }
+.search-card .card-icon { background: rgba(77,155,198,0.2); }
+.search-card .card-badge { background: #4D9BC6; color: #fff; }
 
 .card-icon {
   font-size: 32px;
@@ -120,7 +148,6 @@ function goFacilities() { router.push('/facilities') }
 
 .card-badge { flex-shrink: 0; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 8px; }
 .card-badge.playable { background: #E8F5E9; color: #16A34A; }
-.card-badge.soon { background: #F5F5F5; color: #999; }
 
 .footer-info { text-align: center; margin-top: 28px; color: #aaa; font-size: 12px; }
 .footer-link { margin-top: 4px; color: #4D9BC6; }
