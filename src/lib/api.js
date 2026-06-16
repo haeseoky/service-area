@@ -847,6 +847,134 @@ export function getMoistureGrade(moist) {
   return { label: '건조', color: '#EAB308' }
 }
 
+// ─── 해안 고속도로 해상 정보 (Open-Meteo Marine API, 무료/키 불필요) ───
+// 파고·너울·수온·조위 — 해안 도로(동해선·남해선·서해안선) 주행 위험 분석
+export const COASTAL_POINTS = [
+  { name: '부산 (해운대)', lat: 35.161, lon: 129.16, desc: '남해선·대구부산선 종점', region: '남해' },
+  { name: '울산', lat: 35.54, lon: 129.27, desc: '울산선·동해선', region: '동해' },
+  { name: '포항', lat: 36.04, lon: 129.37, desc: '동해선 중부', region: '동해' },
+  { name: '삼척', lat: 37.45, lon: 129.17, desc: '동해선 북부', region: '동해' },
+  { name: '강릉', lat: 37.75, lon: 128.95, desc: '영동선 해안', region: '동해' },
+  { name: '속초', lat: 38.20, lon: 128.59, desc: '동해선 최북단', region: '동해' },
+  { name: '목포', lat: 34.78, lon: 126.38, desc: '서해안선 종점', region: '서해' },
+  { name: '군산', lat: 35.98, lon: 126.68, desc: '서해안선 중부', region: '서해' },
+  { name: '보령', lat: 36.52, lon: 126.42, desc: '서해안선', region: '서해' },
+  { name: '태안', lat: 36.74, lon: 126.30, desc: '서해안선 북부', region: '서해' },
+  { name: '여수', lat: 34.76, lon: 127.66, desc: '남해선', region: '남해' },
+  { name: '통영', lat: 34.85, lon: 128.43, desc: '중부내륙선 종점', region: '남해' },
+]
+
+const MARINE_API = 'https://marine-api.open-meteo.com/v1/marine'
+
+export async function fetchCoastalSea() {
+  const params = [
+    'wave_height',
+    'wave_direction',
+    'wave_period',
+    'wind_wave_height',
+    'swell_wave_height',
+    'sea_surface_temperature',
+  ].join(',')
+
+  const results = await Promise.all(
+    COASTAL_POINTS.map(async (p) => {
+      try {
+        const url = `${MARINE_API}?latitude=${p.lat}&longitude=${p.lon}&current=${params}&timezone=Asia/Seoul`
+        const res = await fetch(url)
+        if (!res.ok) throw new Error('marine fetch failed')
+        const d = await res.json()
+        const c = d.current
+        return {
+          ...p,
+          waveHeight: c.wave_height != null ? Math.round(c.wave_height * 100) / 100 : null,
+          waveDir: c.wave_direction ?? null,
+          wavePeriod: c.wave_period != null ? Math.round(c.wave_period * 10) / 10 : null,
+          windWave: c.wind_wave_height != null ? Math.round(c.wind_wave_height * 100) / 100 : null,
+          swellWave: c.swell_wave_height != null ? Math.round(c.swell_wave_height * 100) / 100 : null,
+          seaTemp: c.sea_surface_temperature != null ? Math.round(c.sea_surface_temperature * 10) / 10 : null,
+        }
+      } catch {
+        return { ...p, waveHeight: null }
+      }
+    })
+  )
+  return results
+}
+
+// 파고 등급 (해상 안전 기준)
+export function getWaveGrade(height) {
+  if (height == null) return { label: '-', color: '#ccc', emoji: '❓' }
+  if (height >= 4.0) return { label: '매우 높음', color: '#991B1B', emoji: '🚨' }
+  if (height >= 2.5) return { label: '높음', color: '#EF4444', emoji: '🔴' }
+  if (height >= 1.5) return { label: '보통', color: '#F97316', emoji: '🟠' }
+  if (height >= 0.8) return { label: '약함', color: '#EAB308', emoji: '🟡' }
+  return { label: '매우 잔잔', color: '#22C55E', emoji: '🟢' }
+}
+
+// 너울 등급
+export function getSwellGrade(height) {
+  if (height == null) return { label: '-', color: '#ccc' }
+  if (height >= 3.0) return { label: '위험', color: '#EF4444' }
+  if (height >= 2.0) return { label: '주의', color: '#F97316' }
+  if (height >= 1.0) return { label: '보통', color: '#EAB308' }
+  return { label: '양호', color: '#22C55E' }
+}
+
+// 해상 운전 위험도 종합 평가
+export function getSeaRiskLevel(point) {
+  if (point.waveHeight == null) return { score: 0, level: 'unknown', label: '알 수 없음', emoji: '❓', color: '#ccc', risks: [] }
+
+  let score = 100
+  const risks = []
+
+  // 파고
+  if (point.waveHeight >= 4.0) {
+    score -= 50; risks.push({ icon: '🌊', msg: `파고 매우 높음 (${point.waveHeight}m) — 해안도로 통제 위험` })
+  } else if (point.waveHeight >= 2.5) {
+    score -= 35; risks.push({ icon: '🌊', msg: `파고 높음 (${point.waveHeight}m) — 강풍 주의` })
+  } else if (point.waveHeight >= 1.5) {
+    score -= 18; risks.push({ icon: '〰️', msg: `파도 보통 (${point.waveHeight}m)` })
+  }
+
+  // 너울 (swell)
+  if (point.swellWave != null && point.swellWave >= 3.0) {
+    score -= 30; risks.push({ icon: '🌀', msg: `너울 높음 (${point.swellWave}m) — 해파수 침수 위험` })
+  } else if (point.swellWave != null && point.swellWave >= 2.0) {
+    score -= 18; risks.push({ icon: '🌀', msg: `너울 주의 (${point.swellWave}m)` })
+  }
+
+  // 파고 주기 (주기가 길면 더 위험)
+  if (point.wavePeriod != null && point.wavePeriod >= 10 && point.waveHeight >= 1.5) {
+    score -= 12; risks.push({ icon: '⏱️', msg: `긴 주기 파랑 (${point.wavePeriod}초) — 너울성 파도` })
+  }
+
+  score = Math.max(0, Math.min(100, score))
+
+  let level, label, emoji, color
+  if (score >= 85) { level = 'safe'; label = '안전'; emoji = '✅'; color = '#22C55E' }
+  else if (score >= 65) { level = 'caution'; label = '주의'; emoji = '⚠️'; color = '#EAB308' }
+  else if (score >= 40) { level = 'warning'; label = '위험'; emoji = '🔶'; color = '#F97316' }
+  else { level = 'danger'; label = '매우 위험'; emoji = '🚨'; color = '#EF4444' }
+
+  return { score, level, label, emoji, color, risks }
+}
+
+// 파향을 방위 텍스트로 변환
+export function getWaveDirectionText(deg) {
+  if (deg == null) return '-'
+  const dirs = ['북', '북동', '동', '남동', '남', '남서', '서', '북서']
+  return dirs[Math.round(deg / 45) % 8]
+}
+
+// 수온 등급
+export function getSeaTempGrade(temp) {
+  if (temp == null) return { label: '-', color: '#ccc' }
+  if (temp >= 25) return { label: '따뜻함', color: '#EF4444' }
+  if (temp >= 15) return { label: '보통', color: '#22C55E' }
+  if (temp >= 10) return { label: '서늘', color: '#06B6D4' }
+  return { label: '차가움', color: '#3B82F6' }
+}
+
 // 전국 교통량 차종 코드 → 이름
 export const CAR_TYPE_MAP = {
   '1': { label: '1종(승용차)', short: '승용차', emoji: '🚗', color: '#4D9BC6' },

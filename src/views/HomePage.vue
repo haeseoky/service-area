@@ -138,6 +138,7 @@ function goAirQuality() { router.push('/air-quality') }
 function goWeeklyWeather() { router.push('/weekly-weather') }
 function goFloodRisk() { router.push('/flood-risk') }
 function goRoadSurface() { router.push('/road-surface') }
+function goCoastalSea() { router.push('/coastal-sea') }
 </script>
 
 <style scoped>
