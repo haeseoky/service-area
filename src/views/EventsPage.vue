@@ -24,20 +24,39 @@
       <!-- 요약 배너 -->
       <div class="summary-bar">
         <div class="summary-item">
-          <span class="summary-num">{{ activeEvents.length }}</span>
+          <span class="summary-num">{{ newCount }}</span>
+          <span class="summary-label">🆕 새 이벤트</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-num">{{ statusCounts.active }}</span>
           <span class="summary-label">진행 중</span>
         </div>
         <div class="summary-item">
-          <span class="summary-num">{{ activeRestAreas }}</span>
-          <span class="summary-label">휴게소</span>
-        </div>
-        <div class="summary-item">
-          <span class="summary-num">{{ totalEvents }}</span>
+          <span class="summary-num">{{ allEvents.length }}</span>
           <span class="summary-label">전체</span>
         </div>
       </div>
 
-      <!-- 필터 -->
+      <!-- 상태 필터 -->
+      <div class="status-filter-bar">
+        <button class="status-chip" :class="{ active: selectedStatus === 'new' }" @click="selectedStatus = 'new'">
+          🆕 새 이벤트 <span class="chip-count">{{ newCount }}</span>
+        </button>
+        <button class="status-chip" :class="{ active: selectedStatus === 'active' }" @click="selectedStatus = 'active'">
+          ▶️ 진행 중 <span class="chip-count">{{ statusCounts.active }}</span>
+        </button>
+        <button class="status-chip" :class="{ active: selectedStatus === 'upcoming' }" @click="selectedStatus = 'upcoming'">
+          📅 예정 <span class="chip-count">{{ statusCounts.upcoming }}</span>
+        </button>
+        <button class="status-chip" :class="{ active: selectedStatus === 'ended' }" @click="selectedStatus = 'ended'">
+          ✅ 종료 <span class="chip-count">{{ statusCounts.ended }}</span>
+        </button>
+        <button class="status-chip" :class="{ active: selectedStatus === 'all' }" @click="selectedStatus = 'all'">
+          📋 전체 <span class="chip-count">{{ allEvents.length }}</span>
+        </button>
+      </div>
+
+      <!-- 노선 필터 -->
       <div class="filter-bar">
         <button
           v-for="r in routes"
@@ -70,6 +89,7 @@
           v-for="(e, i) in filteredEvents"
           :key="e.eventSeq || i"
           class="table-row"
+          :class="{ 'row-new': isNew(e) }"
           @click="toggleDetail(e.eventSeq)"
         >
           <div class="cell-rest">
@@ -77,7 +97,10 @@
             <div class="rest-route">{{ e.routeNm }}</div>
           </div>
           <div class="cell-event">
-            <div class="event-name">{{ e.eventNm }}</div>
+            <div class="event-name">
+              <span v-if="isNew(e)" class="new-badge">NEW</span>
+              {{ e.eventNm }}
+            </div>
             <div class="event-type">{{ getEventType(e) }}</div>
           </div>
           <div class="cell-period">
@@ -116,13 +139,12 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { fetchEvents, filterActive } from '../lib/api.js'
+import { fetchEvents } from '../lib/api.js'
 
 const loading = ref(true)
 const error = ref('')
 const allEvents = ref([])
-const activeEvents = ref([])
-const totalEvents = ref(0)
+const selectedStatus = ref('new')
 const selectedRoute = ref('전체')
 const searchQuery = ref('')
 const expandedDetail = ref(null)
@@ -130,23 +152,57 @@ const expandedDetail = ref(null)
 const today = new Date().toISOString().slice(0, 10)
 const fetchedAt = ref('')
 
+// 오늘 시작한 이벤트 = NEW (갱신 주기 00시/12시에 맞춤)
+function isNew(e) {
+  return e.stime === today
+}
+
+const newCount = computed(() => allEvents.value.filter(e => isNew(e)).length)
+
+// 상태별 분류
+function getEventStatus(e) {
+  if (e.stime > today) return 'upcoming'
+  if (e.stime === today) return 'new'
+  const days = Math.ceil((new Date(e.etime) - new Date(today)) / (1000 * 60 * 60 * 24))
+  if (days > 365) return 'active' // 상시
+  if (days < 0) return 'ended'
+  return 'active'
+}
+
+const statusCounts = computed(() => {
+  const counts = { new: 0, active: 0, upcoming: 0, ended: 0 }
+  for (const e of allEvents.value) {
+    const s = getEventStatus(e)
+    if (counts[s] != null) counts[s]++
+  }
+  return counts
+})
+
 const routes = computed(() => {
   const set = new Set(['전체'])
-  activeEvents.value.forEach(e => set.add(e.routeNm))
+  let list = allEvents.value
+  if (selectedStatus.value === 'new') list = list.filter(e => isNew(e))
+  else if (selectedStatus.value !== 'all') list = list.filter(e => getEventStatus(e) === selectedStatus.value)
+  list.forEach(e => set.add(e.routeNm))
   return [...set]
 })
 
-const activeRestAreas = computed(() => {
-  const set = new Set()
-  activeEvents.value.forEach(e => set.add(e.stdRestNm))
-  return set.size
-})
-
 const filteredEvents = computed(() => {
-  let list = activeEvents.value
+  let list = allEvents.value
+
+  // 상태 필터
+  if (selectedStatus.value === 'new') {
+    list = list.filter(e => isNew(e))
+  } else if (selectedStatus.value !== 'all') {
+    list = list.filter(e => getEventStatus(e) === selectedStatus.value)
+  }
+
+  // 노선 필터
   if (selectedRoute.value !== '전체') {
     list = list.filter(e => e.routeNm === selectedRoute.value)
   }
+
+  // 검색 필터
   if (searchQuery.value.trim()) {
     const q = searchQuery.value.toLowerCase().trim()
     list = list.filter(e =>
@@ -155,7 +211,14 @@ const filteredEvents = computed(() => {
       (e.eventDetail || '').toLowerCase().includes(q)
     )
   }
-  return list.sort((a, b) => (a.stdRestNm || '').localeCompare(b.stdRestNm || ''))
+
+  // 정렬: NEW(오늘 시작) 최상단 → 진행 중 → 나머지 가나다
+  return list.sort((a, b) => {
+    const aNew = isNew(a) ? 0 : 1
+    const bNew = isNew(b) ? 0 : 1
+    if (aNew !== bNew) return aNew - bNew
+    return (a.stdRestNm || '').localeCompare(b.stdRestNm || '')
+  })
 })
 
 function toggleDetail(seq) {
@@ -182,6 +245,7 @@ function formatPeriod(stime, etime) {
 }
 
 function getStatus(e) {
+  if (isNew(e)) return '🆕 NEW'
   const days = Math.ceil((new Date(e.etime) - new Date(today)) / (1000 * 60 * 60 * 24))
   if (e.stime > today) return '예정'
   if (days > 365) return '상시'
@@ -191,6 +255,7 @@ function getStatus(e) {
 }
 
 function getStatusClass(e) {
+  if (isNew(e)) return 'status-new'
   const s = getStatus(e)
   if (s === '상시') return 'status-always'
   if (s.startsWith('D-')) return 'status-soon'
@@ -203,9 +268,10 @@ async function loadEvents() {
   try {
     const data = await fetchEvents()
     fetchedAt.value = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-    totalEvents.value = data.count
     allEvents.value = data.list || []
-    activeEvents.value = filterActive(data.list)
+    // 새 이벤트가 있으면 'new' 탭, 없으면 'active'
+    const hasNew = allEvents.value.some(e => isNew(e))
+    selectedStatus.value = hasNew ? 'new' : 'active'
   } catch (err) {
     error.value = err.message
   } finally {
@@ -309,11 +375,44 @@ onMounted(loadEvents)
   margin-top: 2px;
 }
 
-/* Filter chips */
+/* Status filter bar */
+.status-filter-bar {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #fff;
+  border-bottom: 1px solid #eee;
+}
+.status-chip {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 14px;
+  border-radius: 20px;
+  background: #f0f0f0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #666;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.status-chip.active {
+  background: #1B355A;
+  color: #fff;
+}
+.chip-count {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+/* Filter chips (route) */
 .filter-bar {
   display: flex;
   gap: 6px;
-  padding: 12px 16px;
+  padding: 10px 16px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   background: #fff;
@@ -323,14 +422,14 @@ onMounted(loadEvents)
   flex-shrink: 0;
   padding: 6px 14px;
   border-radius: 20px;
-  background: #f0f0f0;
-  font-size: 13px;
+  background: #f5f5f5;
+  font-size: 12px;
   font-weight: 600;
-  color: #666;
+  color: #888;
   transition: all 0.15s;
 }
 .filter-chip.active {
-  background: #1B355A;
+  background: #4D9BC6;
   color: #fff;
 }
 
@@ -390,6 +489,12 @@ onMounted(loadEvents)
 .table-row:hover {
   background: #f8fbff;
 }
+.row-new {
+  background: #FFF8E1;
+}
+.row-new:hover {
+  background: #FFF3C4;
+}
 
 .cell-rest { min-width: 0; }
 .rest-name {
@@ -412,12 +517,32 @@ onMounted(loadEvents)
   font-weight: 600;
   color: #333;
   line-height: 1.4;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 .event-type {
   font-size: 11px;
   color: #4D9BC6;
   margin-top: 3px;
   font-weight: 600;
+}
+
+.new-badge {
+  display: inline-block;
+  background: #FF1744;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
 .cell-period {
@@ -439,6 +564,7 @@ onMounted(loadEvents)
 .status-active { background: #E8F5E9; color: #16A34A; }
 .status-always { background: #E3F2FD; color: #1976D2; }
 .status-soon { background: #FFF3E0; color: #F57C00; }
+.status-new { background: #FFEBEE; color: #FF1744; }
 
 /* Detail expansion */
 .event-detail {
