@@ -111,7 +111,7 @@
 
     <div class="data-source">
       데이터 출처: 한국도로공사 휴게소 입점 브랜드 현황<br>
-      기준일: {{ today }}
+      기준일: {{ today }} | 호출시각: {{ fetchedAt }}
     </div>
   </div>
 </template>
@@ -130,6 +130,7 @@ const viewMode = ref('brand')
 const expandedBrand = ref(null)
 
 const today = new Date().toISOString().slice(0, 10)
+const fetchedAt = ref('')
 
 const categories = ['전체', '커피·디저트', '패스트푸드', '간식·식사', '편의점', '레저·기타']
 
@@ -195,6 +196,7 @@ async function loadData() {
   try {
     const data = await fetchBrands({ numOfRows: 1000 })
     allBrands.value = data.list || []
+    fetchedAt.value = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   } catch (e) {
     error.value = e.message
   } finally {

@@ -108,7 +108,7 @@
       <!-- 데이터 출처 -->
       <div class="data-source">
         데이터 출처: 한국도로공사 휴게소 이벤트 현황 조회 서비스<br>
-        기준일: {{ today }}
+        기준일: {{ today }} | 호출시각: {{ fetchedAt }}
       </div>
     </template>
   </div>
@@ -128,6 +128,7 @@ const searchQuery = ref('')
 const expandedDetail = ref(null)
 
 const today = new Date().toISOString().slice(0, 10)
+const fetchedAt = ref('')
 
 const routes = computed(() => {
   const set = new Set(['전체'])
@@ -201,6 +202,7 @@ async function loadEvents() {
   error.value = ''
   try {
     const data = await fetchEvents()
+    fetchedAt.value = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     totalEvents.value = data.count
     allEvents.value = data.list || []
     activeEvents.value = filterActive(data.list)

@@ -18,7 +18,7 @@
 
     <!-- 집계 시간 -->
     <div v-if="lastUpdated" class="update-info">
-      🕐 집계시각: {{ lastUpdated }} (15분 단위)
+      🕐 집계시각: {{ lastUpdated }} (15분 단위) | 호출: {{ fetchedAt }}
     </div>
 
     <!-- 요약 카드 -->
@@ -134,6 +134,7 @@ const rawData = ref([])
 const selectedGate = ref('')
 const page = ref(1)
 const pageSize = 20
+const fetchedAt = ref('')
 
 const gateList = [
   { name: '', emoji: '🌐', label: '전체' },
@@ -272,6 +273,7 @@ async function fetchData() {
       sumDate: i.sumDate || '',
     }))
     page.value = 1
+    fetchedAt.value = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   } catch (e) {
     error.value = e.message || '데이터 조회 실패'
     rawData.value = []

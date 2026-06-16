@@ -60,7 +60,7 @@
 
     <div class="data-source">
       데이터 출처: Open-Meteo (자유 기상 API)<br>
-      기준시각: {{ updateTime }}
+      호출시각: {{ fetchedAt }}
     </div>
   </div>
 </template>
@@ -73,10 +73,7 @@ const loading = ref(false)
 const error = ref('')
 const weather = ref([])
 
-const updateTime = computed(() => {
-  if (weather.value.length === 0) return ''
-  return new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
-})
+const fetchedAt = ref('')
 
 const rainAreas = computed(() => weather.value.filter(w => w.precip > 0 || w.weatherCode >= 51).length)
 const avgTemp = computed(() => {
@@ -95,6 +92,7 @@ async function loadData() {
   error.value = ''
   try {
     weather.value = await fetchHighwayWeather()
+    fetchedAt.value = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   } catch (e) {
     error.value = e.message
   } finally {

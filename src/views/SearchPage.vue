@@ -49,7 +49,7 @@
 
     <!-- 검색 결과 -->
     <div v-if="!loading && results.length > 0" class="result-list">
-      <div class="result-count">'{{ lastQuery }}' — {{ results.length }}개 휴게소</div>
+      <div class="result-count">'{{ lastQuery }}' — {{ results.length }}개 휴게소 <span class="fetched-time">| 호출: {{ fetchedAt }}</span></div>
 
       <div v-for="area in results" :key="area.name" class="area-result-card">
         <!-- 헤더 -->
@@ -112,6 +112,7 @@ const loading = ref(false)
 const error = ref('')
 const searched = ref(false)
 const results = ref([])
+const fetchedAt = ref('')
 
 const quickNames = ['안동', '청원', '호법', '죽암', '이천', '망향', '대전', '옥천', '김천']
 
@@ -126,6 +127,7 @@ async function doSearch() {
   try {
     results.value = await searchRestArea(q) || []
     lastQuery.value = q
+    fetchedAt.value = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   } catch (e) {
     error.value = e.message
     results.value = []
@@ -194,6 +196,7 @@ async function doSearch() {
 
 .result-list { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
 .result-count { font-size: 13px; color: #666; font-weight: 600; padding: 4px 4px 8px; }
+.fetched-time { font-weight: 400; color: #aaa; font-size: 11px; }
 
 .area-result-card {
   background: #fff; border-radius: 14px; padding: 16px;
