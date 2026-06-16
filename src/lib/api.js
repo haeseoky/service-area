@@ -5,25 +5,49 @@ const API_KEY = '0105398808'
 // ─── 휴게소 이벤트 ───
 const EVENT_URL = `${API_BASE}/restinfo/restEventList`
 
-export async function fetchEvents({ numOfRows = 1000, pageNo = 1, routeNm, stdRestNm } = {}) {
-  // 1) 정적 캐시 우선 (매일 갱신)
-  try {
-    const cacheRes = await fetch('/events-data.json?t=' + Date.now())
-    if (cacheRes.ok) {
-      const cached = await cacheRes.json()
-      if (cached.list && cached.list.length > 0) return cached
-    }
-  } catch {}
+export async function fetchEvents({ numOfRows = 1000, pageNo, routeNm, stdRestNm } = {}) {
+  // 1) 정적 캐시 우선 (매일 갱신) — pageNo 지정 없을 때만
+  if (pageNo == null && !routeNm && !stdRestNm) {
+    try {
+      const cacheRes = await fetch('/events-data.json?t=' + Date.now())
+      if (cacheRes.ok) {
+        const cached = await cacheRes.json()
+        if (cached.list && cached.list.length > 0) return cached
+      }
+    } catch {}
+  }
 
-  // 2) 실시간 API 폴백
-  const params = new URLSearchParams({ key: API_KEY, type: 'json', numOfRows: String(numOfRows), pageNo: String(pageNo) })
-  if (routeNm) params.append('routeNm', routeNm)
-  if (stdRestNm) params.append('stdRestNm', stdRestNm)
-  const res = await fetch(`${EVENT_URL}?${params}`)
-  if (!res.ok) throw new Error(`API 오류: ${res.status}`)
-  const data = await res.json()
-  if (data.code !== 'SUCCESS') throw new Error(data.message || 'API 호출 실패')
-  return data
+  // 2) 단일 페이지 호출 (검색 시)
+  if (pageNo != null) {
+    const params = new URLSearchParams({ key: API_KEY, type: 'json', numOfRows: String(numOfRows), pageNo: String(pageNo) })
+    if (routeNm) params.append('routeNm', routeNm)
+    if (stdRestNm) params.append('stdRestNm', stdRestNm)
+    const res = await fetch(`${EVENT_URL}?${params}`)
+    if (!res.ok) throw new Error(`API 오류: ${res.status}`)
+    const data = await res.json()
+    if (data.code !== 'SUCCESS') throw new Error(data.message || 'API 호출 실패')
+    return data
+  }
+
+  // 3) 전체 페이지 자동 수집 (API가 페이지당 최대 99건만 반환)
+  let all = []
+  let page = 1
+  let totalCount = 0
+  while (true) {
+    const params = new URLSearchParams({ key: API_KEY, type: 'json', numOfRows: '500', pageNo: String(page) })
+    if (routeNm) params.append('routeNm', routeNm)
+    if (stdRestNm) params.append('stdRestNm', stdRestNm)
+    const res = await fetch(`${EVENT_URL}?${params}`)
+    if (!res.ok) throw new Error(`API 오류: ${res.status}`)
+    const data = await res.json()
+    if (data.code !== 'SUCCESS') throw new Error(data.message || 'API 호출 실패')
+    totalCount = data.count || 0
+    const list = data.list || []
+    all = all.concat(list)
+    if (all.length >= totalCount || list.length === 0) break
+    page++
+  }
+  return { code: 'SUCCESS', count: all.length, list: all }
 }
 
 export function filterActive(events, today = new Date()) {
@@ -52,15 +76,37 @@ export function groupByRoute(events) {
 // ─── 휴게소 브랜드 매장 ───
 const BRAND_URL = `${API_BASE}/restinfo/restBrandList`
 
-export async function fetchBrands({ numOfRows = 1000, pageNo = 1, stdRestNm, routeNm } = {}) {
-  const params = new URLSearchParams({ key: API_KEY, type: 'json', numOfRows: String(numOfRows), pageNo: String(pageNo) })
-  if (stdRestNm) params.append('stdRestNm', stdRestNm)
-  if (routeNm) params.append('routeNm', routeNm)
-  const res = await fetch(`${BRAND_URL}?${params}`)
-  if (!res.ok) throw new Error(`API 오류: ${res.status}`)
-  const data = await res.json()
-  if (data.code !== 'SUCCESS') throw new Error(data.message || 'API 호출 실패')
-  return data
+export async function fetchBrands({ numOfRows = 1000, pageNo, stdRestNm, routeNm } = {}) {
+  // 단일 페이지 호출 (내부용)
+  if (pageNo != null) {
+    const params = new URLSearchParams({ key: API_KEY, type: 'json', numOfRows: String(numOfRows), pageNo: String(pageNo) })
+    if (stdRestNm) params.append('stdRestNm', stdRestNm)
+    if (routeNm) params.append('routeNm', routeNm)
+    const res = await fetch(`${BRAND_URL}?${params}`)
+    if (!res.ok) throw new Error(`API 오류: ${res.status}`)
+    const data = await res.json()
+    if (data.code !== 'SUCCESS') throw new Error(data.message || 'API 호출 실패')
+    return data
+  }
+  // 전체 페이지 자동 수집 (API가 페이지당 최대 99건만 반환)
+  let all = []
+  let page = 1
+  let totalCount = 0
+  while (true) {
+    const params = new URLSearchParams({ key: API_KEY, type: 'json', numOfRows: '500', pageNo: String(page) })
+    if (stdRestNm) params.append('stdRestNm', stdRestNm)
+    if (routeNm) params.append('routeNm', routeNm)
+    const res = await fetch(`${BRAND_URL}?${params}`)
+    if (!res.ok) throw new Error(`API 오류: ${res.status}`)
+    const data = await res.json()
+    if (data.code !== 'SUCCESS') throw new Error(data.message || 'API 호출 실패')
+    totalCount = data.count || 0
+    const list = data.list || []
+    all = all.concat(list)
+    if (all.length >= totalCount || list.length === 0) break
+    page++
+  }
+  return { code: 'SUCCESS', count: all.length, list: all }
 }
 
 export function groupBrandsByRestArea(brands) {
@@ -88,15 +134,37 @@ export function groupBrandsByName(brands) {
 // ─── 휴게소 편의시설 ───
 const CONV_URL = `${API_BASE}/restinfo/restConvList`
 
-export async function fetchConvs({ numOfRows = 2000, pageNo = 1, stdRestNm, routeNm } = {}) {
-  const params = new URLSearchParams({ key: API_KEY, type: 'json', numOfRows: String(numOfRows), pageNo: String(pageNo) })
-  if (stdRestNm) params.append('stdRestNm', stdRestNm)
-  if (routeNm) params.append('routeNm', routeNm)
-  const res = await fetch(`${CONV_URL}?${params}`)
-  if (!res.ok) throw new Error(`API 오류: ${res.status}`)
-  const data = await res.json()
-  if (data.code !== 'SUCCESS') throw new Error(data.message || 'API 호출 실패')
-  return data
+export async function fetchConvs({ numOfRows = 2000, pageNo, stdRestNm, routeNm } = {}) {
+  // 단일 페이지 호출 (내부용)
+  if (pageNo != null) {
+    const params = new URLSearchParams({ key: API_KEY, type: 'json', numOfRows: String(numOfRows), pageNo: String(pageNo) })
+    if (stdRestNm) params.append('stdRestNm', stdRestNm)
+    if (routeNm) params.append('routeNm', routeNm)
+    const res = await fetch(`${CONV_URL}?${params}`)
+    if (!res.ok) throw new Error(`API 오류: ${res.status}`)
+    const data = await res.json()
+    if (data.code !== 'SUCCESS') throw new Error(data.message || 'API 호출 실패')
+    return data
+  }
+  // 전체 페이지 자동 수집 (API가 페이지당 최대 99건만 반환)
+  let all = []
+  let page = 1
+  let totalCount = 0
+  while (true) {
+    const params = new URLSearchParams({ key: API_KEY, type: 'json', numOfRows: '500', pageNo: String(page) })
+    if (stdRestNm) params.append('stdRestNm', stdRestNm)
+    if (routeNm) params.append('routeNm', routeNm)
+    const res = await fetch(`${CONV_URL}?${params}`)
+    if (!res.ok) throw new Error(`API 오류: ${res.status}`)
+    const data = await res.json()
+    if (data.code !== 'SUCCESS') throw new Error(data.message || 'API 호출 실패')
+    totalCount = data.count || 0
+    const list = data.list || []
+    all = all.concat(list)
+    if (all.length >= totalCount || list.length === 0) break
+    page++
+  }
+  return { code: 'SUCCESS', count: all.length, list: all }
 }
 
 export function groupConvsByRestArea(convs) {
