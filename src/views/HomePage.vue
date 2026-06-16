@@ -133,6 +133,15 @@
         <div class="card-badge playable">GO</div>
       </button>
 
+      <button class="info-card" @click="goWeatherModel">
+        <div class="card-icon">🔮</div>
+        <div class="card-info">
+          <div class="card-name">멀티모델 예보 비교</div>
+          <div class="card-desc">GFS·ICON·ECMWF 3대 모델 예보 비교·신뢰도 분석</div>
+        </div>
+        <div class="card-badge playable">GO</div>
+      </button>
+
       <button class="info-card" @click="goWeatherHistory">
         <div class="card-icon">📉</div>
         <div class="card-info">
@@ -167,6 +176,7 @@ function goFloodRisk() { router.push('/flood-risk') }
 function goRoadSurface() { router.push('/road-surface') }
 function goCoastalSea() { router.push('/coastal-sea') }
 function goElevation() { router.push('/elevation') }
+function goWeatherModel() { router.push('/weather-model') }
 function goWeatherHistory() { router.push('/weather-history') }
 </script>
 

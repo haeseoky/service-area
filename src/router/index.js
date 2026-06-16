@@ -77,6 +77,11 @@ const routes = [
     component: () => import('../views/WeatherHistoryPage.vue'),
   },
   {
+    path: '/weather-model',
+    name: 'WeatherModel',
+    component: () => import('../views/WeatherModelPage.vue'),
+  },
+  {
     path: '/search',
     name: 'Search',
     component: () => import('../views/SearchPage.vue'),

@@ -1218,6 +1218,102 @@ export function getWeatherPattern(stats) {
   return { label: '보통', emoji: '🌤️', color: '#22C55E', desc: '평년 수준' }
 }
 
+// ─── 멀티 모델 날씨 예보 비교 (Open-Meteo Multi-Model API, 무료/키 불필요) ───
+// GFS(미국), ICON(독일), ECMWF(유럽) 3대 글로벌 모델의 예보를 비교하여
+// 예보 불확실성(모델 간 편차)을 시각화 — 모델 간 차이가 크면 예보 신뢰도 낮음
+const MULTI_MODEL_BASE = 'https://api.open-meteo.com/v1/forecast'
+
+export const WEATHER_MODELS = [
+  { id: 'best_match', name: 'Best Match', desc: 'Open-Meteo 최적 조합', emoji: '🎯', color: '#4D9BC6' },
+  { id: 'gfs_seamless', name: 'GFS (미국)', desc: 'NOAA Global Forecast System', emoji: '🇺🇸', color: '#22C55E' },
+  { id: 'icon_seamless', name: 'ICON (독일)', desc: 'DWD Icon Weather Model', emoji: '🇩🇪', color: '#F97316' },
+  { id: 'ecmwf_ifs04', name: 'ECMWF (유럽)', desc: 'European Centre Medium-Range', emoji: '🇪🇺', color: '#8B5CF6' },
+]
+
+export async function fetchWeatherModels() {
+  const dailyParams = [
+    'temperature_2m_max',
+    'temperature_2m_min',
+    'precipitation_sum',
+    'precipitation_probability_max',
+    'wind_speed_10m_max',
+    'weather_code',
+  ].join(',')
+
+  const modelIds = WEATHER_MODELS.map(m => m.id).join(',')
+
+  const results = await Promise.all(
+    HIGHWAY_POINTS.map(async (p) => {
+      try {
+        const url = `${MULTI_MODEL_BASE}?latitude=${p.lat}&longitude=${p.lon}&models=${modelIds}&daily=${dailyParams}&timezone=Asia/Seoul&forecast_days=3`
+        const res = await fetch(url)
+        if (!res.ok) throw new Error('multi-model fetch failed')
+        const d = await res.json()
+
+        const dates = d.daily.time || []
+        const models = {}
+
+        for (const m of WEATHER_MODELS) {
+          const suffix = m.id
+          models[m.id] = dates.map((date, i) => ({
+            date,
+            tempMax: d.daily[`temperature_2m_max_${suffix}`]?.[i] != null ? Math.round(d.daily[`temperature_2m_max_${suffix}`][i] * 10) / 10 : null,
+            tempMin: d.daily[`temperature_2m_min_${suffix}`]?.[i] != null ? Math.round(d.daily[`temperature_2m_min_${suffix}`][i] * 10) / 10 : null,
+            precip: d.daily[`precipitation_sum_${suffix}`]?.[i] != null ? Math.round(d.daily[`precipitation_sum_${suffix}`][i] * 10) / 10 : null,
+            precipProb: d.daily[`precipitation_probability_max_${suffix}`]?.[i] ?? null,
+            windMax: d.daily[`wind_speed_10m_max_${suffix}`]?.[i] != null ? Math.round(d.daily[`wind_speed_10m_max_${suffix}`][i]) : null,
+            weatherCode: d.daily[`weather_code_${suffix}`]?.[i] ?? null,
+          }))
+        }
+
+        // 오늘(인덱스 0) 기준 모델 간 편차 계산
+        const todayTemps = WEATHER_MODELS.map(m => models[m.id][0]?.tempMax).filter(v => v != null)
+        const todayPrecips = WEATHER_MODELS.map(m => models[m.id][0]?.precip).filter(v => v != null)
+        const todayProbs = WEATHER_MODELS.map(m => models[m.id][0]?.precipProb).filter(v => v != null)
+
+        const tempSpread = todayTemps.length > 1 ? Math.round((Math.max(...todayTemps) - Math.min(...todayTemps)) * 10) / 10 : 0
+        const avgTemp = todayTemps.length > 0 ? Math.round(todayTemps.reduce((a, b) => a + b, 0) / todayTemps.length * 10) / 10 : null
+        const avgPrecip = todayPrecips.length > 0 ? Math.round(todayPrecips.reduce((a, b) => a + b, 0) / todayPrecips.length * 10) / 10 : null
+        const avgProb = todayProbs.length > 0 ? Math.round(todayProbs.reduce((a, b) => a + b, 0) / todayProbs.length) : null
+        const precipAgreement = todayProbs.length > 1
+          ? Math.round(Math.min(...todayProbs) > 50 && Math.max(...todayProbs) > 50 ? 100 : (Math.max(...todayProbs) < 30 ? 100 : (100 - Math.abs(Math.max(...todayProbs) - Math.min(...todayProbs)))))
+          : 100
+
+        return {
+          ...p,
+          dates,
+          models,
+          tempSpread,
+          avgTemp,
+          avgPrecip,
+          avgProb,
+          precipAgreement,
+        }
+      } catch {
+        return { ...p, dates: [], models: {}, tempSpread: null }
+      }
+    })
+  )
+  return results
+}
+
+// 예보 신뢰도 등급 (모델 간 편차 기준)
+export function getForecastConfidence(tempSpread) {
+  if (tempSpread == null) return { label: '-', color: '#ccc', emoji: '❓', desc: '데이터 없음' }
+  if (tempSpread <= 1.5) return { label: '높음', color: '#22C55E', emoji: '✅', desc: '모델 간 예보 일치' }
+  if (tempSpread <= 3) return { label: '보통', color: '#EAB308', emoji: '⚠️', desc: '약간의 차이 존재' }
+  if (tempSpread <= 5) return { label: '낮음', color: '#F97316', emoji: '🔶', desc: '모델 간 차이 큼' }
+  return { label: '매우 낮음', color: '#EF4444', emoji: '🚨', desc: '예보 불확실성 매우 큼' }
+}
+
+// 강수 예보 합의도 등급
+export function getPrecipAgreementGrade(agreement) {
+  if (agreement == null) return { label: '-', color: '#ccc' }
+  if (agreement >= 80) return { label: '일치', color: '#22C55E' }
+  if (agreement >= 50) return { label: '부분 일치', color: '#EAB308' }
+  return { label: '불일치', color: '#EF4444' }
+}
+
 // 전국 교통량 차종 코드 → 이름
 export const CAR_TYPE_MAP = {
   '1': { label: '1종(승용차)', short: '승용차', emoji: '🚗', color: '#4D9BC6' },
