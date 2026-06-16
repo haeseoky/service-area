@@ -61,6 +61,15 @@
         <div class="card-badge playable">GO</div>
       </button>
 
+      <button class="info-card" @click="goDrivingSafety">
+        <div class="card-icon">🚦</div>
+        <div class="card-info">
+          <div class="card-name">운전안전 지수</div>
+          <div class="card-desc">가시거리·돌풍·적설 종합 분석 안전 점수</div>
+        </div>
+        <div class="card-badge playable">GO</div>
+      </button>
+
       <button class="info-card" @click="goWeather">
         <div class="card-icon">🌤️</div>
         <div class="card-info">
@@ -103,6 +112,7 @@ function goSearch() { router.push('/search') }
 function goEvents() { router.push('/events') }
 function goTraffic() { router.push('/traffic') }
 function goRouteTraffic() { router.push('/route-traffic') }
+function goDrivingSafety() { router.push('/driving-safety') }
 function goBrands() { router.push('/brands') }
 function goFacilities() { router.push('/facilities') }
 function goWeather() { router.push('/weather') }

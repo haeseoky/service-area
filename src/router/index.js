@@ -47,6 +47,11 @@ const routes = [
     component: () => import('../views/RouteTrafficPage.vue'),
   },
   {
+    path: '/driving-safety',
+    name: 'DrivingSafety',
+    component: () => import('../views/DrivingSafetyPage.vue'),
+  },
+  {
     path: '/search',
     name: 'Search',
     component: () => import('../views/SearchPage.vue'),

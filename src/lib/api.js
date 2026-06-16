@@ -402,6 +402,142 @@ export async function fetchHighwayForecast() {
   return results
 }
 
+// ─── 고속도로 운전안전 지수 (Open-Meteo 확장 기상 파라미터) ───
+// 가시거리, 돌풍, 해면기압, 체감온도, 운량, 적설, 소나기 — 기존 날씨 페이지와 완전히 다른 데이터
+export async function fetchDrivingSafety() {
+  const params = [
+    'visibility',
+    'wind_gusts_10m',
+    'pressure_msl',
+    'apparent_temperature',
+    'cloud_cover',
+    'snowfall',
+    'showers',
+    'temperature_2m',
+    'precipitation',
+    'weather_code',
+    'wind_speed_10m',
+    'relative_humidity_2m',
+  ].join(',')
+
+  const results = await Promise.all(
+    HIGHWAY_POINTS.map(async (p) => {
+      try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&current=${params}&timezone=Asia/Seoul`
+        const res = await fetch(url)
+        if (!res.ok) throw new Error('safety fetch failed')
+        const d = await res.json()
+        const c = d.current
+        return {
+          ...p,
+          visibility: c.visibility ?? 0,
+          windGust: Math.round(c.wind_gusts_10m ?? 0),
+          pressure: Math.round(c.pressure_msl ?? 0),
+          apparentTemp: Math.round(c.apparent_temperature ?? 0),
+          cloudCover: c.cloud_cover ?? 0,
+          snowfall: c.snowfall ?? 0,
+          showers: c.showers ?? 0,
+          temp: Math.round(c.temperature_2m ?? 0),
+          precip: c.precipitation ?? 0,
+          weatherCode: c.weather_code ?? 0,
+          windSpeed: Math.round(c.wind_speed_10m ?? 0),
+          humidity: c.relative_humidity_2m ?? 0,
+        }
+      } catch {
+        return { ...p, visibility: null }
+      }
+    })
+  )
+  return results
+}
+
+// 운전안전 등급 계산 — 가시거리, 돌풍, 강수, 적설, 날씨코드 종합
+export function computeSafetyIndex(point) {
+  if (point.visibility == null) return { score: 0, level: 'unknown', label: '알 수 없음', emoji: '❓', color: '#ccc', risks: [] }
+
+  let score = 100
+  const risks = []
+
+  // 가시거리 (가장 중요)
+  if (point.visibility < 500) {
+    score -= 45; risks.push({ icon: '🌫️', msg: `가시거리 매우 나쁨 (${point.visibility}m)` })
+  } else if (point.visibility < 1000) {
+    score -= 30; risks.push({ icon: '🌫️', msg: `가시거리 나쁨 (${point.visibility}m)` })
+  } else if (point.visibility < 5000) {
+    score -= 15; risks.push({ icon: '🌫️', msg: `가시거리 주의 (${(point.visibility / 1000).toFixed(1)}km)` })
+  }
+
+  // 돌풍
+  if (point.windGust >= 70) {
+    score -= 30; risks.push({ icon: '🌪️', msg: `매우 강한 돌풍 (${point.windGust}km/h)` })
+  } else if (point.windGust >= 50) {
+    score -= 20; risks.push({ icon: '💨', msg: `강한 돌풍 (${point.windGust}km/h)` })
+  } else if (point.windGust >= 35) {
+    score -= 10; risks.push({ icon: '💨', msg: `돌풍 주의 (${point.windGust}km/h)` })
+  }
+
+  // 적설
+  if (point.snowfall >= 5) {
+    score -= 35; risks.push({ icon: '❄️', msg: `폭설 (${point.snowfall}cm)` })
+  } else if (point.snowfall >= 1) {
+    score -= 20; risks.push({ icon: '❄️', msg: `눈 (${point.snowfall}cm)` })
+  } else if (point.snowfall > 0) {
+    score -= 8; risks.push({ icon: '❄️', msg: `약간의 눈 (${point.snowfall}cm)` })
+  }
+
+  // 소나기
+  if (point.showers >= 10) {
+    score -= 20; risks.push({ icon: '🌧️', msg: `강한 소나기 (${point.showers}mm)` })
+  } else if (point.showers >= 3) {
+    score -= 10; risks.push({ icon: '🌧️', msg: `소나기 (${point.showers}mm)` })
+  }
+
+  // 일반 강수
+  if (point.precip >= 10) {
+    score -= 15; risks.push({ icon: '🌧️', msg: `강한 비 (${point.precip}mm)` })
+  } else if (point.precip >= 3) {
+    score -= 8; risks.push({ icon: '🌧️', msg: `비 (${point.precip}mm)` })
+  }
+
+  // 천둥번개
+  if (point.weatherCode >= 95) {
+    score -= 25; risks.push({ icon: '⛈️', msg: '천둥번개' })
+  }
+
+  // 안개
+  if (point.weatherCode === 45 || point.weatherCode === 48) {
+    score -= 20; risks.push({ icon: '🌫️', msg: '안개' })
+  }
+
+  score = Math.max(0, Math.min(100, score))
+
+  let level, label, emoji, color
+  if (score >= 85) { level = 'safe'; label = '안전'; emoji = '✅'; color = '#22C55E' }
+  else if (score >= 65) { level = 'caution'; label = '주의'; emoji = '⚠️'; color = '#EAB308' }
+  else if (score >= 40) { level = 'warning'; label = '위험'; emoji = '🔶'; color = '#F97316' }
+  else { level = 'danger'; label = '매우 위험'; emoji = '🚨'; color = '#EF4444' }
+
+  return { score, level, label, emoji, color, risks }
+}
+
+// 가시거리 등급
+export function getVisibilityGrade(vis) {
+  if (vis == null) return { label: '-', color: '#ccc' }
+  if (vis >= 10000) return { label: '양호', color: '#22C55E' }
+  if (vis >= 5000) return { label: '보통', color: '#EAB308' }
+  if (vis >= 1000) return { label: '주의', color: '#F97316' }
+  return { label: '위험', color: '#EF4444' }
+}
+
+// 돌풍 등급
+export function getWindGustGrade(gust) {
+  if (gust == null) return { label: '-', color: '#ccc' }
+  if (gust < 25) return { label: '약함', color: '#22C55E' }
+  if (gust < 40) return { label: '보통', color: '#EAB308' }
+  if (gust < 60) return { label: '강함', color: '#F97316' }
+  return { label: '매우 강함', color: '#EF4444' }
+}
+
 // ─── 전국 교통량 (trafficAll) ───
 const TRAFFIC_ALL_URL = `${API_BASE}/trafficapi/trafficAll`
 
