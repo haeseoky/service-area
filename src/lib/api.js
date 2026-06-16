@@ -1125,6 +1125,99 @@ export function getTemperatureAdjustment(elevation, seaLevelTemp) {
   return Math.round((seaLevelTemp - elevation * 0.006) * 10) / 10
 }
 
+// ─── 고속도로 기상 이력 분석 (Open-Meteo Archive API / ERA5, 무료/키 불필요) ───
+// 과거 7일간의 실제 기상 관측 데이터를 조회하여 기후 패턴과 추세 분석
+const ARCHIVE_API = 'https://archive-api.open-meteo.com/v1/archive'
+
+export async function fetchHighwayWeatherHistory(days = 7) {
+  const today = new Date()
+  const endDate = today.toISOString().slice(0, 10)
+  const startDate = new Date(today.getTime() - days * 86400000).toISOString().slice(0, 10)
+
+  const dailyParams = [
+    'temperature_2m_max',
+    'temperature_2m_min',
+    'temperature_2m_mean',
+    'precipitation_sum',
+    'rain_sum',
+    'snowfall_sum',
+    'wind_speed_10m_max',
+    'wind_gusts_10m_max',
+    'weather_code',
+    'sunshine_duration',
+    'daylight_duration',
+  ].join(',')
+
+  const results = await Promise.all(
+    HIGHWAY_POINTS.map(async (p) => {
+      try {
+        const url = `${ARCHIVE_API}?latitude=${p.lat}&longitude=${p.lon}&start_date=${startDate}&end_date=${endDate}&daily=${dailyParams}&timezone=Asia/Seoul`
+        const res = await fetch(url)
+        if (!res.ok) throw new Error('archive fetch failed')
+        const d = await res.json()
+
+        const times = d.daily.time || []
+        const days = times.map((date, i) => ({
+          date,
+          tempMax: d.daily.temperature_2m_max[i] != null ? Math.round(d.daily.temperature_2m_max[i] * 10) / 10 : null,
+          tempMin: d.daily.temperature_2m_min[i] != null ? Math.round(d.daily.temperature_2m_min[i] * 10) / 10 : null,
+          tempMean: d.daily.temperature_2m_mean[i] != null ? Math.round(d.daily.temperature_2m_mean[i] * 10) / 10 : null,
+          precip: d.daily.precipitation_sum[i] != null ? Math.round(d.daily.precipitation_sum[i] * 10) / 10 : null,
+          rain: d.daily.rain_sum[i] != null ? Math.round(d.daily.rain_sum[i] * 10) / 10 : null,
+          snow: d.daily.snowfall_sum[i] != null ? Math.round(d.daily.snowfall_sum[i] * 10) / 10 : null,
+          windMax: d.daily.wind_speed_10m_max[i] != null ? Math.round(d.daily.wind_speed_10m_max[i]) : null,
+          gustMax: d.daily.wind_gusts_10m_max[i] != null ? Math.round(d.daily.wind_gusts_10m_max[i]) : null,
+          weatherCode: d.daily.weather_code[i] ?? null,
+          sunshine: d.daily.sunshine_duration[i] != null ? Math.round(d.daily.sunshine_duration[i] / 60) : null, // 분 단위
+        }))
+
+        // 통계 요약
+        const validMax = days.filter(x => x.tempMax != null).map(x => x.tempMax)
+        const validMin = days.filter(x => x.tempMin != null).map(x => x.tempMin)
+        const validPrecip = days.filter(x => x.precip != null).map(x => x.precip)
+        const validWind = days.filter(x => x.windMax != null).map(x => x.windMax)
+
+        const stats = {
+          avgMax: validMax.length > 0 ? Math.round(validMax.reduce((a, b) => a + b, 0) / validMax.length * 10) / 10 : null,
+          avgMin: validMin.length > 0 ? Math.round(validMin.reduce((a, b) => a + b, 0) / validMin.length * 10) / 10 : null,
+          totalPrecip: validPrecip.length > 0 ? Math.round(validPrecip.reduce((a, b) => a + b, 0) * 10) / 10 : null,
+          maxWind: validWind.length > 0 ? Math.max(...validWind) : null,
+          rainDays: days.filter(x => x.precip != null && x.precip >= 1).length,
+          clearDays: days.filter(x => x.weatherCode != null && x.weatherCode <= 2).length,
+        }
+
+        return { ...p, days, stats }
+      } catch {
+        return { ...p, days: [], stats: null }
+      }
+    })
+  )
+  return results
+}
+
+// 일주일 기상 패턴 분류
+export function getWeatherPattern(stats) {
+  if (!stats) return { label: '-', emoji: '❓', color: '#ccc', desc: '' }
+  const { avgMax, totalPrecip, rainDays, maxWind } = stats
+
+  if (totalPrecip >= 50 || rainDays >= 4) {
+    return { label: '다우', emoji: '🌧️', color: '#3B82F6', desc: '비가 많은 한 주' }
+  }
+  if (maxWind >= 50) {
+    return { label: '강풍', emoji: '💨', color: '#F97316', desc: '강한 바람이 부는 한 주' }
+  }
+  if (avgMax >= 30) {
+    return { label: '폭염', emoji: '🔥', color: '#EF4444', desc: '무더운 한 주' }
+  }
+  if (avgMax <= 0) {
+    return { label: '한파', emoji: '🥶', color: '#06B6D4', desc: '매서운 추위' }
+  }
+  if (rainDays === 0 && totalPrecip < 5) {
+    return { label: '건조', emoji: '☀️', color: '#EAB308', desc: '맑고 건조한 한 주' }
+  }
+  return { label: '보통', emoji: '🌤️', color: '#22C55E', desc: '평년 수준' }
+}
+
 // 전국 교통량 차종 코드 → 이름
 export const CAR_TYPE_MAP = {
   '1': { label: '1종(승용차)', short: '승용차', emoji: '🚗', color: '#4D9BC6' },

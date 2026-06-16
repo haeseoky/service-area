@@ -132,6 +132,15 @@
         </div>
         <div class="card-badge playable">GO</div>
       </button>
+
+      <button class="info-card" @click="goWeatherHistory">
+        <div class="card-icon">📉</div>
+        <div class="card-info">
+          <div class="card-name">기상 이력 분석</div>
+          <div class="card-desc">과거 7일 기상 관측 데이터·기온 추이·강수 패턴 분석 (Open-Meteo ERA5 Archive)</div>
+        </div>
+        <div class="card-badge playable">GO</div>
+      </button>
     </div>
 
     <div class="footer-info">
@@ -158,6 +167,7 @@ function goFloodRisk() { router.push('/flood-risk') }
 function goRoadSurface() { router.push('/road-surface') }
 function goCoastalSea() { router.push('/coastal-sea') }
 function goElevation() { router.push('/elevation') }
+function goWeatherHistory() { router.push('/weather-history') }
 </script>
 
 <style scoped>
