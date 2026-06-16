@@ -69,6 +69,15 @@
         </div>
         <div class="card-badge playable">GO</div>
       </button>
+
+      <button class="info-card" @click="goWeeklyWeather">
+        <div class="card-icon">📅</div>
+        <div class="card-info">
+          <div class="card-name">고속도로 주간날씨</div>
+          <div class="card-desc">7일 전망·일출/일몰·자외선·강수확률</div>
+        </div>
+        <div class="card-badge playable">GO</div>
+      </button>
     </div>
 
     <div class="footer-info">
@@ -88,6 +97,7 @@ function goBrands() { router.push('/brands') }
 function goFacilities() { router.push('/facilities') }
 function goWeather() { router.push('/weather') }
 function goAirQuality() { router.push('/air-quality') }
+function goWeeklyWeather() { router.push('/weekly-weather') }
 </script>
 
 <style scoped>

@@ -359,6 +359,49 @@ export function getUVGrade(uv) {
   return { label: '위험', color: '#991B1B' }
 }
 
+// ─── 고속도로 주간 날씨 전망 (Open-Meteo Daily API) ───
+// 일출/일몰, 자외선, 일일 최고/최저 기온, 강수확률, 풍속 등 7일 전망
+export async function fetchHighwayForecast() {
+  const dailyParams = [
+    'weather_code',
+    'temperature_2m_max',
+    'temperature_2m_min',
+    'sunrise',
+    'sunset',
+    'uv_index_max',
+    'precipitation_sum',
+    'precipitation_probability_max',
+    'wind_speed_10m_max',
+  ].join(',')
+
+  const results = await Promise.all(
+    HIGHWAY_POINTS.map(async (p) => {
+      try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&daily=${dailyParams}&timezone=Asia/Seoul&forecast_days=7`
+        const res = await fetch(url)
+        if (!res.ok) throw new Error('forecast fetch failed')
+        const d = await res.json()
+        const days = d.daily.time.map((date, i) => ({
+          date,
+          weatherCode: d.daily.weather_code[i],
+          tempMax: Math.round(d.daily.temperature_2m_max[i]),
+          tempMin: Math.round(d.daily.temperature_2m_min[i]),
+          sunrise: d.daily.sunrise[i],
+          sunset: d.daily.sunset[i],
+          uvMax: Math.round(d.daily.uv_index_max[i] * 10) / 10,
+          precipSum: d.daily.precipitation_sum[i] || 0,
+          precipProb: d.daily.precipitation_probability_max[i] || 0,
+          windMax: Math.round(d.daily.wind_speed_10m_max[i] || 0),
+        }))
+        return { ...p, days }
+      } catch {
+        return { ...p, days: [] }
+      }
+    })
+  )
+  return results
+}
+
 // ─── 전국 교통량 (trafficAll) ───
 const TRAFFIC_ALL_URL = `${API_BASE}/trafficapi/trafficAll`
 
