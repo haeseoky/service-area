@@ -67,6 +67,11 @@ const routes = [
     component: () => import('../views/CoastalSeaPage.vue'),
   },
   {
+    path: '/elevation',
+    name: 'Elevation',
+    component: () => import('../views/ElevationPage.vue'),
+  },
+  {
     path: '/search',
     name: 'Search',
     component: () => import('../views/SearchPage.vue'),

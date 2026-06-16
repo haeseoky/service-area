@@ -975,6 +975,88 @@ export function getSeaTempGrade(temp) {
   return { label: '차가움', color: '#3B82F6' }
 }
 
+// ─── 고속도로 표고 프로파일 (Open-Meteo Elevation API, 무료/키 불필요) ───
+// 각 고속도로 지점의 해발 고도를 조회하여 산악 구간·터널 접근·경사도 정보 제공
+const ELEVATION_API = 'https://api.open-meteo.com/v1/elevation'
+
+export async function fetchHighwayElevation() {
+  // 한 번에 모든 좌표를 전송 (배치 쿼리)
+  const lats = HIGHWAY_POINTS.map(p => p.lat).join(',')
+  const lons = HIGHWAY_POINTS.map(p => p.lon).join(',')
+  try {
+    const url = `${ELEVATION_API}?latitude=${lats}&longitude=${lons}`
+    const res = await fetch(url)
+    if (!res.ok) throw new Error('elevation fetch failed')
+    const d = await res.json()
+    const elevations = d.elevation || []
+
+    const points = HIGHWAY_POINTS.map((p, i) => ({
+      ...p,
+      elevation: elevations[i] != null ? Math.round(elevations[i]) : null,
+    }))
+
+    // 인접 지점 간 경사도 계산
+    for (let i = 0; i < points.length; i++) {
+      if (i === 0) {
+        points[i].gradientFromPrev = null
+        points[i].elevationDiff = null
+      } else {
+        const diff = (points[i].elevation ?? 0) - (points[i - 1].elevation ?? 0)
+        points[i].elevationDiff = diff
+        // 대략적인 직선 거리 (haversine 단순화)
+        const lat1 = points[i - 1].lat
+        const lon1 = points[i - 1].lon
+        const lat2 = points[i].lat
+        const lon2 = points[i].lon
+        const R = 6371
+        const dLat = (lat2 - lat1) * Math.PI / 180
+        const dLon = (lon2 - lon1) * Math.PI / 180
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
+        const distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        points[i].distanceFromPrev = Math.round(distance * 10) / 10
+        points[i].gradientFromPrev = distance > 0 ? Math.round((diff / (distance * 1000)) * 1000) / 10 : null
+      }
+    }
+
+    // 최고/최저 표고
+    const validElev = points.filter(p => p.elevation != null)
+    const maxElev = validElev.length > 0 ? Math.max(...validElev.map(p => p.elevation)) : 0
+    const minElev = validElev.length > 0 ? Math.min(...validElev.map(p => p.elevation)) : 0
+    const maxPoint = validElev.find(p => p.elevation === maxElev)
+    const minPoint = validElev.find(p => p.elevation === minElev)
+
+    return { points, maxElev, minElev, maxPoint, minPoint }
+  } catch {
+    return { points: HIGHWAY_POINTS.map(p => ({ ...p, elevation: null })), maxElev: 0, minElev: 0, maxPoint: null, minPoint: null }
+  }
+}
+
+// 표고 등급
+export function getElevationGrade(elevation) {
+  if (elevation == null) return { label: '-', color: '#ccc', emoji: '❓' }
+  if (elevation >= 500) return { label: '고산', color: '#8B5CF6', emoji: '⛰️' }
+  if (elevation >= 300) return { label: '산간', color: '#6366F1', emoji: '🏔️' }
+  if (elevation >= 150) return { label: '구릉', color: '#0EA5E9', emoji: '丘陵' }
+  if (elevation >= 50) return { label: '평지', color: '#22C55E', emoji: '🏞️' }
+  return { label: '저지', color: '#06B6D4', emoji: '🌊' }
+}
+
+// 경사도 등급
+export function getGradientGrade(gradient) {
+  if (gradient == null) return { label: '-', color: '#ccc' }
+  const abs = Math.abs(gradient)
+  if (abs >= 4) return { label: '급경사', color: '#EF4444' }
+  if (abs >= 2) return { label: '완만한 경사', color: '#F97316' }
+  if (abs >= 1) return { label: '완경사', color: '#EAB308' }
+  return { label: '평지', color: '#22C55E' }
+}
+
+// 표고에 따른 온도 감소 보정 (건조 단열 감률: 0.6°C/100m)
+export function getTemperatureAdjustment(elevation, seaLevelTemp) {
+  if (elevation == null || seaLevelTemp == null) return null
+  return Math.round((seaLevelTemp - elevation * 0.006) * 10) / 10
+}
+
 // 전국 교통량 차종 코드 → 이름
 export const CAR_TYPE_MAP = {
   '1': { label: '1종(승용차)', short: '승용차', emoji: '🚗', color: '#4D9BC6' },

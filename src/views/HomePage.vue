@@ -114,6 +114,24 @@
         </div>
         <div class="card-badge playable">GO</div>
       </button>
+
+      <button class="info-card" @click="goCoastalSea">
+        <div class="card-icon">🏖️</div>
+        <div class="card-info">
+          <div class="card-name">해안 해상 정보</div>
+          <div class="card-desc">파고·너울·수온 — 해안 고속도로 주행 위험 (Open-Meteo Marine API)</div>
+        </div>
+        <div class="card-badge playable">GO</div>
+      </button>
+
+      <button class="info-card" @click="goElevation">
+        <div class="card-icon">⛰️</div>
+        <div class="card-info">
+          <div class="card-name">표고 프로파일</div>
+          <div class="card-desc">전국 고속도로 해발 고도·경사도·산악 구간 분석 (Open-Meteo Elevation API)</div>
+        </div>
+        <div class="card-badge playable">GO</div>
+      </button>
     </div>
 
     <div class="footer-info">
@@ -139,6 +157,7 @@ function goWeeklyWeather() { router.push('/weekly-weather') }
 function goFloodRisk() { router.push('/flood-risk') }
 function goRoadSurface() { router.push('/road-surface') }
 function goCoastalSea() { router.push('/coastal-sea') }
+function goElevation() { router.push('/elevation') }
 </script>
 
 <style scoped>
