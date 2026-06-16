@@ -34,6 +34,15 @@
         <div class="card-badge playable">GO</div>
       </button>
 
+      <button class="info-card" @click="goRouteTraffic">
+        <div class="card-icon">🛣️</div>
+        <div class="card-info">
+          <div class="card-name">노선별 교통량 분석</div>
+          <div class="card-desc">19개 노선 전 영업소·차종·시간대별 상세 분석</div>
+        </div>
+        <div class="card-badge playable">GO</div>
+      </button>
+
       <button class="info-card" @click="goBrands">
         <div class="card-icon">🏪</div>
         <div class="card-info">
@@ -93,6 +102,7 @@ const router = useRouter()
 function goSearch() { router.push('/search') }
 function goEvents() { router.push('/events') }
 function goTraffic() { router.push('/traffic') }
+function goRouteTraffic() { router.push('/route-traffic') }
 function goBrands() { router.push('/brands') }
 function goFacilities() { router.push('/facilities') }
 function goWeather() { router.push('/weather') }

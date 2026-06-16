@@ -42,6 +42,11 @@ const routes = [
     component: () => import('../views/WeeklyWeatherPage.vue'),
   },
   {
+    path: '/route-traffic',
+    name: 'RouteTraffic',
+    component: () => import('../views/RouteTrafficPage.vue'),
+  },
+  {
     path: '/search',
     name: 'Search',
     component: () => import('../views/SearchPage.vue'),

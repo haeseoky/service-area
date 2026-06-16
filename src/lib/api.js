@@ -406,10 +406,81 @@ export async function fetchHighwayForecast() {
 const TRAFFIC_ALL_URL = `${API_BASE}/trafficapi/trafficAll`
 
 export async function fetchTrafficAll() {
-  const params = new URLSearchParams({ key: API_KEY, type: 'json', numOfRows: '200' })
+  const params = new URLSearchParams({ key: API_KEY, type: 'json', numOfRows: '500' })
   const res = await fetch(`${TRAFFIC_ALL_URL}?${params}`)
   if (!res.ok) throw new Error(`API 오류: ${res.status}`)
   const data = await res.json()
   if (data.code !== 'SUCCESS') throw new Error(data.message || 'API 호출 실패')
   return data
+}
+
+// ─── 노선별 교통량 (trafficRoute) ───
+const TRAFFIC_ROUTE_URL = `${API_BASE}/trafficapi/trafficRoute`
+
+// 전국 고속도로 노선 목록
+export const HIGHWAY_ROUTES = [
+  { code: '001', name: '경부선', desc: '서울~부산' },
+  { code: '015', name: '서해안선', desc: '서서울~목포' },
+  { code: '025', name: '호남선', desc: '논산~광주' },
+  { code: '035', name: '중부내륙선', desc: '동서울~대전통영' },
+  { code: '045', name: '중부내륙선(상주)', desc: '감곡~상주' },
+  { code: '050', name: '영동선', desc: '신갈~강릉' },
+  { code: '055', name: '중앙선', desc: '원주~부산' },
+  { code: '065', name: '동해선', desc: '속초~부산' },
+  { code: '012', name: '광주대구선', desc: '광주~대구' },
+  { code: '010', name: '남해선', desc: '순천~부산' },
+  { code: '020', name: '새만금포항선', desc: '새만금~포항' },
+  { code: '030', name: '서산영덕선', desc: '서산~영덕' },
+  { code: '040', name: '평택음성선', desc: '평택~음성' },
+  { code: '016', name: '울산선', desc: '울산~경주' },
+  { code: '104', name: '남해제2지선', desc: '장유~부산' },
+  { code: '153', name: '평택시흥선', desc: '평택~시흥' },
+  { code: '160', name: '대구부산선', desc: '대구~부산' },
+  { code: '400', name: '수도권제2순환선', desc: '봉담~성남' },
+  { code: '600', name: '무안광주선', desc: '무안~광주' },
+]
+
+export async function fetchTrafficRoute(routeNo) {
+  const params = new URLSearchParams({ key: API_KEY, type: 'json', numOfRows: '10000', routeNo })
+  const res = await fetch(`${TRAFFIC_ROUTE_URL}?${params}`)
+  if (!res.ok) throw new Error(`API 오류: ${res.status}`)
+  const data = await res.json()
+  if (data.code !== 'SUCCESS') throw new Error(data.message || 'API 호출 실패')
+  return data
+}
+
+// 노선별 교통량 영업소별 집계
+export function aggregateRouteByUnit(list) {
+  const map = new Map()
+  for (const t of list || []) {
+    const key = t.unitName
+    if (!map.has(key)) {
+      map.set(key, {
+        name: t.unitName,
+        code: t.unitCode?.trim(),
+        totalIn: 0,
+        totalOut: 0,
+        carTypes: {},
+      })
+    }
+    const unit = map.get(key)
+    const amount = parseInt(t.trafficAmout) || 0
+    if (t.inoutType === '0') unit.totalIn += amount
+    else unit.totalOut += amount
+    // carType 집계
+    if (!unit.carTypes[t.carType]) unit.carTypes[t.carType] = { in: 0, out: 0 }
+    if (t.inoutType === '0') unit.carTypes[t.carType].in += amount
+    else unit.carTypes[t.carType].out += amount
+  }
+  return Array.from(map.values())
+}
+
+// 전국 교통량 차종 코드 → 이름
+export const CAR_TYPE_MAP = {
+  '1': { label: '1종(승용차)', short: '승용차', emoji: '🚗', color: '#4D9BC6' },
+  '2': { label: '2종(중형승용)', short: '중형승용', emoji: '🚙', color: '#22C55E' },
+  '3': { label: '3종(대형승용)', short: '대형승용', emoji: '🚐', color: '#EAB308' },
+  '4': { label: '4종(소형화물)', short: '소형화물', emoji: '🛻', color: '#F97316' },
+  '5': { label: '5종(대형화물)', short: '대형화물', emoji: '🚛', color: '#EF4444' },
+  '6': { label: '6종(특수차량)', short: '특수차량', emoji: '🚜', color: '#8B5CF6' },
 }
