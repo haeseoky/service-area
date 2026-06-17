@@ -1401,6 +1401,176 @@ export function getMinutelyVisibilityGrade(vis) {
   return { label: '양호', color: '#16A34A' }
 }
 
+// ─── 고속도로 뇌우/대기불안정 예보 (Open-Meteo, 무료/키 불필요) ───
+// CAPE(대기 불안정도 에너지), Lifted Index(상승지수), 이슬점, 운량(상/중/하층)으로
+// 뇌우·낙뢰·돌풍 발생 가능성을 예측하여 운전 위험도 경고
+export async function fetchThunderstormRisk() {
+  const params = [
+    'cape',
+    'lifted_index',
+    'dew_point_2m',
+    'cloud_cover',
+    'cloud_cover_low',
+    'cloud_cover_mid',
+    'cloud_cover_high',
+    'precipitation',
+    'weather_code',
+    'temperature_2m',
+    'wind_speed_10m',
+  ].join(',')
+
+  const results = await Promise.all(
+    HIGHWAY_POINTS.map(async (p) => {
+      try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&current=${params}&hourly=${params}&timezone=Asia/Seoul&forecast_days=2`
+        const res = await fetch(url)
+        if (!res.ok) throw new Error('thunderstorm fetch failed')
+        const d = await res.json()
+        const c = d.current
+
+        // 현재 시각 인덱스
+        const now = new Date()
+        const nowStr = now.toISOString().slice(0, 13)
+        const idx = d.hourly.time.findIndex(t => t.slice(0, 13) === nowStr)
+        const safeIdx = idx >= 0 ? idx : 0
+
+        // 다음 12시간 시간별 데이터
+        const hourly = []
+        for (let i = safeIdx; i < Math.min(safeIdx + 12, d.hourly.time.length); i++) {
+          hourly.push({
+            time: d.hourly.time[i],
+            cape: d.hourly.cape?.[i] ?? 0,
+            liftedIndex: d.hourly.lifted_index?.[i] ?? null,
+            dewPoint: d.hourly.dew_point_2m?.[i] ?? null,
+            precip: d.hourly.precipitation?.[i] ?? 0,
+            weatherCode: d.hourly.weather_code?.[i] ?? 0,
+            temp: d.hourly.temperature_2m?.[i] != null ? Math.round(d.hourly.temperature_2m[i]) : null,
+          })
+        }
+
+        // 다음 12시간 최대 CAPE
+        const maxCape = Math.max(...hourly.map(h => h.cape), 0)
+        const minLI = Math.min(...hourly.filter(h => h.liftedIndex != null).map(h => h.liftedIndex), 999)
+
+        return {
+          ...p,
+          cape: c.cape ?? 0,
+          liftedIndex: c.lifted_index ?? null,
+          dewPoint: c.dew_point_2m ?? null,
+          cloudCover: c.cloud_cover ?? 0,
+          cloudLow: c.cloud_cover_low ?? 0,
+          cloudMid: c.cloud_cover_mid ?? 0,
+          cloudHigh: c.cloud_cover_high ?? 0,
+          temp: Math.round(c.temperature_2m ?? 0),
+          precip: c.precipitation ?? 0,
+          weatherCode: c.weather_code ?? 0,
+          windSpeed: Math.round(c.wind_speed_10m ?? 0),
+          hourly,
+          maxCape,
+          minLI: minLI === 999 ? null : minLI,
+        }
+      } catch {
+        return { ...p, cape: null }
+      }
+    })
+  )
+  return results
+}
+
+// 뇌우 위험도 종합 평가 (CAPE + Lifted Index + 이슬점)
+export function getThunderstormRisk(point) {
+  if (point.cape == null) return { score: 0, level: 'unknown', label: '알 수 없음', emoji: '❓', color: '#ccc', risks: [] }
+
+  let score = 100
+  const risks = []
+  const { cape, maxCape, minLI, dewPoint } = point
+
+  // CAPE (대기 불안정도 에너지) — 뇌우 형성의 핵심 지표
+  // >1000: 강한 뇌우 가능, >2500: 극심한 뇌우, >4000: 초점폭풍
+  const peakCape = Math.max(cape, maxCape)
+  if (peakCape >= 2500) {
+    score -= 45; risks.push({ icon: '⛈️', msg: `극심한 대기 불안정 (CAPE ${peakCape}J/kg) — 심한 뇌우·낙뢰 가능` })
+  } else if (peakCape >= 1000) {
+    score -= 30; risks.push({ icon: '⛈️', msg: `강한 대기 불안정 (CAPE ${peakCape}J/kg) — 뇌우 가능성` })
+  } else if (peakCape >= 500) {
+    score -= 18; risks.push({ icon: '🌩️', msg: `대기 불안정 (CAPE ${peakCape}J/kg) — 국지성 뇌우 주의` })
+  } else if (peakCape >= 200) {
+    score -= 8; risks.push({ icon: '⛅', msg: `약한 불안정 (CAPE ${peakCape}J/kg)` })
+  }
+
+  // Lifted Index (상승지수) — 음수일수록 불안정
+  // <= -6: 극심한 불안정, <= -3: 강한 불안정, <= 0: 불안정, > 0: 안정
+  if (minLI != null && minLI <= -6) {
+    score -= 30; risks.push({ icon: '⛈️', msg: `상승지수 매우 낮음 (LI ${minLI}) — 극심한 불안정` })
+  } else if (minLI != null && minLI <= -3) {
+    score -= 20; risks.push({ icon: '🌩️', msg: `상승지수 낮음 (LI ${minLI}) — 강한 불안정` })
+  } else if (minLI != null && minLI <= 0) {
+    score -= 12; risks.push({ icon: '☁️', msg: `상승지수 미만 (LI ${minLI}) — 불안정` })
+  }
+
+  // 이슬점 (습기가 많을수록 뇌우 형성 용이) — 18°C 이상이면 충분한 습기
+  if (dewPoint != null && dewPoint >= 22) {
+    score -= 12; risks.push({ icon: '💦', msg: `매우 습윤 (이슬점 ${Math.round(dewPoint)}°C) — 뇌우 형성 충분한 수분` })
+  } else if (dewPoint != null && dewPoint >= 18) {
+    score -= 6; risks.push({ icon: '💧', msg: `습윤 (이슬점 ${Math.round(dewPoint)}°C)` })
+  }
+
+  // 현재 강수 + 천둥 (weatherCode >= 95)
+  if (point.weatherCode >= 95) {
+    score -= 20; risks.push({ icon: '⛈️', msg: '현재 천둥번개 관측 중' })
+  }
+
+  score = Math.max(0, Math.min(100, score))
+
+  let level, label, emoji, color
+  if (score >= 85) { level = 'safe'; label = '안전'; emoji = '✅'; color = '#22C55E' }
+  else if (score >= 65) { level = 'caution'; label = '주의'; emoji = '⚠️'; color = '#EAB308' }
+  else if (score >= 40) { level = 'warning'; label = '위험'; emoji = '🔶'; color = '#F97316' }
+  else { level = 'danger'; label = '매우 위험'; emoji = '🚨'; color = '#EF4444' }
+
+  return { score, level, label, emoji, color, risks }
+}
+
+// CAPE 등급
+export function getCapeGrade(cape) {
+  if (cape == null) return { label: '-', color: '#ccc', emoji: '❓' }
+  if (cape >= 2500) return { label: '극심', color: '#991B1B', emoji: '🚨' }
+  if (cape >= 1000) return { label: '강함', color: '#EF4444', emoji: '⛈️' }
+  if (cape >= 500) return { label: '보통', color: '#F97316', emoji: '🌩️' }
+  if (cape >= 200) return { label: '약함', color: '#EAB308', emoji: '⛅' }
+  return { label: '안정', color: '#22C55E', emoji: '✅' }
+}
+
+// Lifted Index 등급
+export function getLiftedIndexGrade(li) {
+  if (li == null) return { label: '-', color: '#ccc', emoji: '❓' }
+  if (li <= -6) return { label: '극심한 불안정', color: '#991B1B', emoji: '🚨' }
+  if (li <= -3) return { label: '강한 불안정', color: '#EF4444', emoji: '⛈️' }
+  if (li <= 0) return { label: '불안정', color: '#F97316', emoji: '🌩️' }
+  if (li <= 2) return { label: '약한 불안정', color: '#EAB308', emoji: '⛅' }
+  return { label: '안정', color: '#22C55E', emoji: '✅' }
+}
+
+// 이슬점 등급 (불쾌지수 관점)
+export function getDewPointGrade(dp) {
+  if (dp == null) return { label: '-', color: '#ccc' }
+  if (dp >= 24) return { label: '매우 후텁지근', color: '#991B1B' }
+  if (dp >= 21) return { label: '후텁지근', color: '#EF4444' }
+  if (dp >= 18) return { label: '다소 습함', color: '#F97316' }
+  if (dp >= 12) return { label: '쾌적', color: '#22C55E' }
+  if (dp >= 6) return { label: '건조', color: '#06B6D4' }
+  return { label: '매우 건조', color: '#3B82F6' }
+}
+
+// 운량(구름량) 등급
+export function getCloudCoverGrade(cover) {
+  if (cover == null) return { label: '-', color: '#ccc' }
+  if (cover >= 80) return { label: '흐림', color: '#888' }
+  if (cover >= 50) return { label: '구름많음', color: '#aaa' }
+  if (cover >= 20) return { label: '부분 흐림', color: '#4D9BC6' }
+  return { label: '맑음', color: '#22C55E' }
+}
+
 // 전국 교통량 차종 코드 → 이름
 export const CAR_TYPE_MAP = {
   '1': { label: '1종(승용차)', short: '승용차', emoji: '🚗', color: '#4D9BC6' },

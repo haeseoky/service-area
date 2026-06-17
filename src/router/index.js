@@ -87,6 +87,11 @@ const routes = [
     component: () => import('../views/MinutelyForecastPage.vue'),
   },
   {
+    path: '/thunderstorm',
+    name: 'Thunderstorm',
+    component: () => import('../views/ThunderstormPage.vue'),
+  },
+  {
     path: '/search',
     name: 'Search',
     component: () => import('../views/SearchPage.vue'),

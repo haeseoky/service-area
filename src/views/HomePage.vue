@@ -159,6 +159,15 @@
         </div>
         <div class="card-badge playable">GO</div>
       </button>
+
+      <button class="info-card" @click="goThunderstorm">
+        <div class="card-icon">⛈️</div>
+        <div class="card-info">
+          <div class="card-name">뇌우·대기불안정 예보</div>
+          <div class="card-desc">CAPE·상승지수·이슬점 기반 낙뢰·뇌우 발생 가능성 분석 (Open-Meteo)</div>
+        </div>
+        <div class="card-badge playable">GO</div>
+      </button>
     </div>
 
     <div class="footer-info">
@@ -188,6 +197,7 @@ function goElevation() { router.push('/elevation') }
 function goMinutelyForecast() { router.push('/minutely-forecast') }
 function goWeatherModel() { router.push('/weather-model') }
 function goWeatherHistory() { router.push('/weather-history') }
+function goThunderstorm() { router.push('/thunderstorm') }
 </script>
 
 <style scoped>
