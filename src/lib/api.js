@@ -1314,6 +1314,93 @@ export function getPrecipAgreementGrade(agreement) {
   return { label: '불일치', color: '#EF4444' }
 }
 
+// ─── 단기 강수·시정 예보 (Open-Meteo minutely_15, 무료/키 불필요) ───
+// 15분 단위로 다음 시간들의 강수량과 가시거리를 예측하여
+// "지금부터 2~3시간 내에 비가 올까?", "안개가 낄까?"를 시계열로 보여줌
+export async function fetchMinutelyForecast() {
+  const results = await Promise.all(
+    HIGHWAY_POINTS.map(async (p) => {
+      try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&minutely_15=precipitation,visibility,weather_code&timezone=Asia/Seoul&forecast_days=1`
+        const res = await fetch(url)
+        if (!res.ok) throw new Error('minutely fetch failed')
+        const d = await res.json()
+        const m = d.minutely_15
+        if (!m || !m.time) return { ...p, slots: [], maxPrecip: 0, minVisibility: 0, willRain: false }
+
+        // 현재 시각 인덱스 찾기
+        const now = new Date()
+        const nowStr = now.toISOString().slice(0, 13) // YYYY-MM-DDTHH
+        let startIdx = m.time.findIndex(t => t.slice(0, 13) === nowStr)
+        if (startIdx < 0) startIdx = 0
+
+        // 다음 4시간(16슬롯) 데이터 추출
+        const slots = []
+        for (let i = startIdx; i < Math.min(startIdx + 16, m.time.length); i++) {
+          slots.push({
+            time: m.time[i],
+            precip: m.precipitation?.[i] ?? 0,
+            visibility: m.visibility?.[i] ?? 0,
+            weatherCode: m.weather_code?.[i] ?? 0,
+          })
+        }
+
+        const maxPrecip = Math.max(...slots.map(s => s.precip), 0)
+        const minVisibility = Math.min(...slots.map(s => s.visibility), 99999)
+        const willRain = slots.some(s => s.precip >= 0.1)
+        const rainStart = slots.find(s => s.precip >= 0.1)
+
+        return {
+          ...p,
+          slots,
+          maxPrecip: Math.round(maxPrecip * 100) / 100,
+          minVisibility: minVisibility === 99999 ? 0 : minVisibility,
+          willRain,
+          rainStartTime: rainStart ? rainStart.time : null,
+        }
+      } catch {
+        return { ...p, slots: [], maxPrecip: 0, minVisibility: 0, willRain: false }
+      }
+    })
+  )
+  return results
+}
+
+// 단기 강수 등급
+export function getMinutelyPrecipGrade(precip) {
+  if (precip == null) return { label: '-', color: '#ccc', emoji: '❓' }
+  if (precip >= 5) return { label: '폭우', color: '#991B1B', emoji: '🌊' }
+  if (precip >= 2) return { label: '강한 비', color: '#EF4444', emoji: '⛈️' }
+  if (precip >= 0.5) return { label: '비', color: '#3B82F6', emoji: '🌧️' }
+  if (precip >= 0.1) return { label: '약한 비', color: '#06B6D4', emoji: '🌦️' }
+  return { label: '맑음', color: '#22C55E', emoji: '☀️' }
+}
+
+// 15분 강수 트렌드 분석
+export function getPrecipTrend(slots) {
+  if (!slots || slots.length === 0) return { text: '-', icon: '', color: '#ccc' }
+  const first4 = slots.slice(0, 4).map(s => s.precip)
+  const last4 = slots.slice(-4).map(s => s.precip)
+  const avgFirst = first4.reduce((a, b) => a + b, 0) / first4.length
+  const avgLast = last4.reduce((a, b) => a + b, 0) / last4.length
+  const diff = avgLast - avgFirst
+  if (diff > 0.5) return { text: '강수 증가', icon: '🔺', color: '#EF4444' }
+  if (diff > 0.1) return { text: '점차 비', icon: '🔼', color: '#3B82F6' }
+  if (diff < -0.3) return { text: '점차 맑음', icon: '🔽', color: '#22C55E' }
+  if (avgLast < 0.1 && avgFirst < 0.1) return { text: '안정', icon: '➡️', color: '#888' }
+  return { text: '지속', icon: '➡️', color: '#888' }
+}
+
+// 단기 가시거리 등급 (운전 관점)
+export function getMinutelyVisibilityGrade(vis) {
+  if (vis == null || vis === 0) return { label: '-', color: '#ccc' }
+  if (vis < 500) return { label: '위험', color: '#EF4444' }
+  if (vis < 1000) return { label: '매우 나쁨', color: '#F97316' }
+  if (vis < 5000) return { label: '주의', color: '#EAB308' }
+  if (vis < 10000) return { label: '보통', color: '#22C55E' }
+  return { label: '양호', color: '#16A34A' }
+}
+
 // 전국 교통량 차종 코드 → 이름
 export const CAR_TYPE_MAP = {
   '1': { label: '1종(승용차)', short: '승용차', emoji: '🚗', color: '#4D9BC6' },

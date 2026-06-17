@@ -142,6 +142,15 @@
         <div class="card-badge playable">GO</div>
       </button>
 
+      <button class="info-card" @click="goMinutelyForecast">
+        <div class="card-icon">⏱️</div>
+        <div class="card-info">
+          <div class="card-name">단기 강수·시정 예보</div>
+          <div class="card-desc">15분 단위 강수·가시거리 예측 — 앞으로 4시간 (Open-Meteo minutely_15)</div>
+        </div>
+        <div class="card-badge playable">GO</div>
+      </button>
+
       <button class="info-card" @click="goWeatherHistory">
         <div class="card-icon">📉</div>
         <div class="card-info">
@@ -176,6 +185,7 @@ function goFloodRisk() { router.push('/flood-risk') }
 function goRoadSurface() { router.push('/road-surface') }
 function goCoastalSea() { router.push('/coastal-sea') }
 function goElevation() { router.push('/elevation') }
+function goMinutelyForecast() { router.push('/minutely-forecast') }
 function goWeatherModel() { router.push('/weather-model') }
 function goWeatherHistory() { router.push('/weather-history') }
 </script>
