@@ -1571,6 +1571,156 @@ export function getCloudCoverGrade(cover) {
   return { label: '맑음', color: '#22C55E' }
 }
 
+// ─── NASA POWER 위성 기상 분석 (NASA POWER API, 무료/키 불필요) ───
+// NASA 위성(FLOATFLUX/GEOSIT) 관측 데이터로 일사량·고층풍·풍향·습구온도·기압 제공
+// Open-Meteo와 완전히 다른 데이터 소스 (위성 관측 기반)
+const NASA_POWER_BASE = 'https://power.larc.nasa.gov/api/temporal/daily/point'
+
+export async function fetchNasaWeather() {
+  const params = [
+    'ALLSKY_SFC_SW_DWN',  // 전천 일사량 (MJ/m²/day)
+    'T2M',                // 2m 기온
+    'RH2M',               // 상대습도
+    'T2MWET',             // 습구온도
+    'WS10M',              // 10m 풍속
+    'WS50M',              // 50m 풍속 (대형 차량 영향)
+    'WD10M',              // 풍향 (도)
+    'PS',                 // 표면 기압 (kPa)
+    'PRECTOTCORR',        // 위성 강수량 (mm/day)
+  ].join(',')
+
+  // 최근 14일 데이터 (NASA POWER는 약 3일 지연)
+  const today = new Date()
+  const end = new Date(today.getTime() - 3 * 86400000).toISOString().slice(0, 10).replace(/-/g, '')
+  const start = new Date(today.getTime() - 17 * 86400000).toISOString().slice(0, 10).replace(/-/g, '')
+
+  const results = await Promise.all(
+    HIGHWAY_POINTS.map(async (p) => {
+      try {
+        const url = `${NASA_POWER_BASE}?parameters=${params}&community=AG&longitude=${p.lon}&latitude=${p.lat}&start=${start}&end=${end}&format=JSON`
+        const res = await fetch(url)
+        if (!res.ok) throw new Error('nasa fetch failed')
+        const d = await res.json()
+        const param = d.properties?.parameter || {}
+
+        // 날짜 배열 생성
+        const dates = []
+        const tmp = new Date(today.getTime() - 14 * 86400000)
+        for (let i = 0; i < 14; i++) {
+          dates.push(new Date(tmp.getTime() + i * 86400000).toISOString().slice(0, 10))
+        }
+
+        // 일자별 데이터 배열 (빈 데이터 건너뛰기)
+        const days = dates.map(date => {
+          const key = date.replace(/-/g, '')
+          return {
+            date,
+            solar: param.ALLSKY_SFC_SW_DWN?.[key] != null && param.ALLSKY_SFC_SW_DWN[key] !== -999
+              ? Math.round(param.ALLSKY_SFC_SW_DWN[key] * 100) / 100 : null,
+            temp: param.T2M?.[key] != null && param.T2M[key] !== -999
+              ? Math.round(param.T2M[key] * 10) / 10 : null,
+            humidity: param.RH2M?.[key] != null && param.RH2M[key] !== -999
+              ? Math.round(param.RH2M[key] * 10) / 10 : null,
+            wetBulb: param.T2MWET?.[key] != null && param.T2MWET[key] !== -999
+              ? Math.round(param.T2MWET[key] * 10) / 10 : null,
+            wind10: param.WS10M?.[key] != null && param.WS10M[key] !== -999
+              ? Math.round(param.WS10M[key] * 10) / 10 : null,
+            wind50: param.WS50M?.[key] != null && param.WS50M[key] !== -999
+              ? Math.round(param.WS50M[key] * 10) / 10 : null,
+            windDir: param.WD10M?.[key] != null && param.WD10M[key] !== -999
+              ? Math.round(param.WD10M[key]) : null,
+            pressure: param.PS?.[key] != null && param.PS[key] !== -999
+              ? Math.round(param.PS[key] * 10) / 10 : null,
+            precip: param.PRECTOTCORR?.[key] != null && param.PRECTOTCORR[key] !== -999
+              ? Math.round(param.PRECTOTCORR[key] * 100) / 100 : null,
+          }
+        })
+
+        // 최근 유효 데이터 (보통 마지막 3일은 -999)
+        const validDays = days.filter(d => d.solar != null || d.temp != null)
+        const latest = validDays.length > 0 ? validDays[validDays.length - 1] : null
+
+        // 14일 평균
+        const validSolar = validDays.map(d => d.solar).filter(v => v != null)
+        const validTemp = validDays.map(d => d.temp).filter(v => v != null)
+        const validWind50 = validDays.map(d => d.wind50).filter(v => v != null)
+        const validPressure = validDays.map(d => d.pressure).filter(v => v != null)
+        const validPrecip = validDays.map(d => d.precip).filter(v => v != null)
+        const validHumidity = validDays.map(d => d.humidity).filter(v => v != null)
+
+        const avg = (arr) => arr.length > 0 ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length * 10) / 10 : null
+
+        return {
+          ...p,
+          days,
+          latest,
+          avgSolar: avg(validSolar),
+          avgTemp: avg(validTemp),
+          avgWind50: avg(validWind50),
+          avgPressure: avg(validPressure),
+          totalPrecip: validPrecip.length > 0 ? Math.round(validPrecip.reduce((a, b) => a + b, 0) * 100) / 100 : null,
+          avgHumidity: avg(validHumidity),
+          validCount: validDays.length,
+        }
+      } catch {
+        return { ...p, days: [], latest: null, avgSolar: null }
+      }
+    })
+  )
+  return results
+}
+
+// 일사량 등급 (눈부심 위험 관점)
+export function getSolarGrade(solar) {
+  if (solar == null) return { label: '-', color: '#ccc', emoji: '❓' }
+  // MJ/m²/day 기준
+  if (solar >= 25) return { label: '매우 강함', color: '#991B1B', emoji: '🕶️' }
+  if (solar >= 20) return { label: '강함', color: '#EF4444', emoji: '🌞' }
+  if (solar >= 15) return { label: '보통', color: '#EAB308', emoji: '☀️' }
+  if (solar >= 8) return { label: '약함', color: '#22C55E', emoji: '⛅' }
+  return { label: '매우 약함', color: '#06B6D4', emoji: '☁️' }
+}
+
+// 풍향을 방위 텍스트로 변환
+export function getWindDirectionText(deg) {
+  if (deg == null) return '-'
+  const dirs = ['북', '북동', '동', '남동', '남', '남서', '서', '북서']
+  return dirs[Math.round(deg / 45) % 8]
+}
+
+// 50m 고층 풍속 등급 (대형 차량 영향)
+export function getHighWindGrade(speed) {
+  if (speed == null) return { label: '-', color: '#ccc' }
+  if (speed >= 8) return { label: '매우 강함', color: '#991B1B' }
+  if (speed >= 6) return { label: '강함', color: '#EF4444' }
+  if (speed >= 4) return { label: '보통', color: '#EAB308' }
+  return { label: '약함', color: '#22C55E' }
+}
+
+// 습구온도 등급 (불쾌지수 관련)
+export function getWetBulbGrade(temp) {
+  if (temp == null) return { label: '-', color: '#ccc' }
+  if (temp >= 27) return { label: '위험', color: '#991B1B' }
+  if (temp >= 24) return { label: '매우 더움', color: '#EF4444' }
+  if (temp >= 21) return { label: '더움', color: '#F97316' }
+  if (temp >= 18) return { label: '보통', color: '#22C55E' }
+  if (temp >= 10) return { label: '서늘', color: '#06B6D4' }
+  return { label: '추움', color: '#3B82F6' }
+}
+
+// 표면 기압 등급
+export function getPressureGrade(pressure) {
+  if (pressure == null) return { label: '-', color: '#ccc' }
+  if (pressure >= 101.5) return { label: '고기압', color: '#4D9BC6' }
+  if (pressure >= 100.5) return { label: '약 고기압', color: '#22C55E' }
+  if (pressure >= 99.5) return { label: '정상', color: '#EAB308' }
+  if (pressure >= 98.5) return { label: '약 저기압', color: '#F97316' }
+  return { label: '저기압', color: '#EF4444' }
+}
+
+// NASA POWER 데이터 지연 안내
+export const NASA_DATA_LAG_DAYS = 3
+
 // 전국 교통량 차종 코드 → 이름
 export const CAR_TYPE_MAP = {
   '1': { label: '1종(승용차)', short: '승용차', emoji: '🚗', color: '#4D9BC6' },

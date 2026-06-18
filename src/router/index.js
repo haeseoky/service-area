@@ -92,6 +92,11 @@ const routes = [
     component: () => import('../views/ThunderstormPage.vue'),
   },
   {
+    path: '/nasa-weather',
+    name: 'NasaWeather',
+    component: () => import('../views/NasaWeatherPage.vue'),
+  },
+  {
     path: '/search',
     name: 'Search',
     component: () => import('../views/SearchPage.vue'),
