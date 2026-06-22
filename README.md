@@ -3,7 +3,7 @@
 > 전국 고속도로 휴게소 · 교통량 · 날씨 종합 정보
 
 ## 🌐 서비스 URL
-- **메인:** https://highway.nutalk.co.kr
+- **메인:** https://service-area.nutalk.co.kr
 - **Pages:** https://service-area-nutalk.pages.dev
 
 ## 📋 소개
