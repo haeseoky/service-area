@@ -7,166 +7,166 @@
 
     <div class="card-grid">
       <!-- 🔍 통합검색 (강조) -->
-      <button class="info-card search-card" @click="goSearch">
-        <div class="card-icon">🔍</div>
+      <button class="info-card search-card" @click="goSearch" aria-label="휴게소 통합검색 페이지로 이동">
+        <div class="card-icon" aria-hidden="true">🔍</div>
         <div class="card-info">
           <div class="card-name">휴게소 통합검색</div>
           <div class="card-desc">이벤트·브랜드·편의시설 한번에 검색</div>
         </div>
-        <div class="card-badge playable">GO</div>
+        <div class="card-badge playable" aria-hidden="true">GO</div>
       </button>
 
-      <button class="info-card" @click="goEvents">
-        <div class="card-icon">🎉</div>
+      <button class="info-card" @click="goEvents" aria-label="휴게소 이벤트 페이지로 이동">
+        <div class="card-icon" aria-hidden="true">🎉</div>
         <div class="card-info">
           <div class="card-name">휴게소 이벤트</div>
           <div class="card-desc">전국 휴게소 진행 중인 이벤트 조회</div>
         </div>
-        <div class="card-badge playable">GO</div>
+        <div class="card-badge playable" aria-hidden="true">GO</div>
       </button>
 
-      <button class="info-card" @click="goTraffic">
-        <div class="card-icon">📊</div>
+      <button class="info-card" @click="goTraffic" aria-label="수도권 관문 교통량 페이지로 이동">
+        <div class="card-icon" aria-hidden="true">📊</div>
         <div class="card-info">
           <div class="card-name">수도권 관문 교통량</div>
           <div class="card-desc">6대 관문 시간대별·차종별 통행량</div>
         </div>
-        <div class="card-badge playable">GO</div>
+        <div class="card-badge playable" aria-hidden="true">GO</div>
       </button>
 
-      <button class="info-card" @click="goRouteTraffic">
-        <div class="card-icon">🛣️</div>
+      <button class="info-card" @click="goRouteTraffic" aria-label="노선별 교통량 분석 페이지로 이동">
+        <div class="card-icon" aria-hidden="true">🛣️</div>
         <div class="card-info">
           <div class="card-name">노선별 교통량 분석</div>
           <div class="card-desc">19개 노선 전 영업소·차종·시간대별 상세 분석</div>
         </div>
-        <div class="card-badge playable">GO</div>
+        <div class="card-badge playable" aria-hidden="true">GO</div>
       </button>
 
-      <button class="info-card" @click="goBrands">
-        <div class="card-icon">🏪</div>
+      <button class="info-card" @click="goBrands" aria-label="브랜드 매장 페이지로 이동">
+        <div class="card-icon" aria-hidden="true">🏪</div>
         <div class="card-info">
           <div class="card-name">브랜드 매장</div>
           <div class="card-desc">휴게소별 입점 브랜드 (할리스, CU, 롯데리아 등)</div>
         </div>
-        <div class="card-badge playable">GO</div>
+        <div class="card-badge playable" aria-hidden="true">GO</div>
       </button>
 
-      <button class="info-card" @click="goFacilities">
-        <div class="card-icon">🛎️</div>
+      <button class="info-card" @click="goFacilities" aria-label="편의시설 페이지로 이동">
+        <div class="card-icon" aria-hidden="true">🛎️</div>
         <div class="card-info">
           <div class="card-name">편의시설</div>
           <div class="card-desc">수유실, 샤워실, 경정비 등 편의시설 검색</div>
         </div>
-        <div class="card-badge playable">GO</div>
+        <div class="card-badge playable" aria-hidden="true">GO</div>
       </button>
 
-      <button class="info-card" @click="goDrivingSafety">
-        <div class="card-icon">🚦</div>
+      <button class="info-card" @click="goDrivingSafety" aria-label="운전안전 지수 페이지로 이동">
+        <div class="card-icon" aria-hidden="true">🚦</div>
         <div class="card-info">
           <div class="card-name">운전안전 지수</div>
           <div class="card-desc">가시거리·돌풍·적설 종합 분석 안전 점수</div>
         </div>
-        <div class="card-badge playable">GO</div>
+        <div class="card-badge playable" aria-hidden="true">GO</div>
       </button>
 
-      <button class="info-card" @click="goWeather">
-        <div class="card-icon">🌤️</div>
+      <button class="info-card" @click="goWeather" aria-label="고속도로 날씨 페이지로 이동">
+        <div class="card-icon" aria-hidden="true">🌤️</div>
         <div class="card-info">
           <div class="card-name">고속도로 날씨</div>
           <div class="card-desc">전국 주요 지점 실시간 날씨</div>
         </div>
-        <div class="card-badge playable">GO</div>
+        <div class="card-badge playable" aria-hidden="true">GO</div>
       </button>
 
-      <button class="info-card" @click="goAirQuality">
-        <div class="card-icon">🌬️</div>
+      <button class="info-card" @click="goAirQuality" aria-label="고속도로 대기질 페이지로 이동">
+        <div class="card-icon" aria-hidden="true">🌬️</div>
         <div class="card-info">
           <div class="card-name">고속도로 대기질</div>
           <div class="card-desc">PM10·PM2.5·자외선·대기성분 정보</div>
         </div>
-        <div class="card-badge playable">GO</div>
+        <div class="card-badge playable" aria-hidden="true">GO</div>
       </button>
 
-      <button class="info-card" @click="goWeeklyWeather">
-        <div class="card-icon">📅</div>
+      <button class="info-card" @click="goWeeklyWeather" aria-label="고속도로 주간날씨 페이지로 이동">
+        <div class="card-icon" aria-hidden="true">📅</div>
         <div class="card-info">
           <div class="card-name">고속도로 주간날씨</div>
           <div class="card-desc">7일 전망·일출/일몰·자외선·강수확률</div>
         </div>
-        <div class="card-badge playable">GO</div>
+        <div class="card-badge playable" aria-hidden="true">GO</div>
       </button>
 
-      <button class="info-card" @click="goFloodRisk">
-        <div class="card-icon">🌊</div>
+      <button class="info-card" @click="goFloodRisk" aria-label="하천 범람 위험 페이지로 이동">
+        <div class="card-icon" aria-hidden="true">🌊</div>
         <div class="card-info">
           <div class="card-name">하천 범람 위험</div>
           <div class="card-desc">고속도로 인근 하천 유량·홍수 예측 (Open-Meteo Flood API)</div>
         </div>
-        <div class="card-badge playable">GO</div>
+        <div class="card-badge playable" aria-hidden="true">GO</div>
       </button>
 
-      <button class="info-card" @click="goRoadSurface">
-        <div class="card-icon">🌡️</div>
+      <button class="info-card" @click="goRoadSurface" aria-label="노면 상태 예측 페이지로 이동">
+        <div class="card-icon" aria-hidden="true">🌡️</div>
         <div class="card-info">
           <div class="card-name">노면 상태 예측</div>
           <div class="card-desc">표면 온도·수분·결빙/과열 위험 분석 (Open-Meteo Soil API)</div>
         </div>
-        <div class="card-badge playable">GO</div>
+        <div class="card-badge playable" aria-hidden="true">GO</div>
       </button>
 
-      <button class="info-card" @click="goCoastalSea">
-        <div class="card-icon">🏖️</div>
+      <button class="info-card" @click="goCoastalSea" aria-label="해안 해상 정보 페이지로 이동">
+        <div class="card-icon" aria-hidden="true">🏖️</div>
         <div class="card-info">
           <div class="card-name">해안 해상 정보</div>
           <div class="card-desc">파고·너울·수온 — 해안 고속도로 주행 위험 (Open-Meteo Marine API)</div>
         </div>
-        <div class="card-badge playable">GO</div>
+        <div class="card-badge playable" aria-hidden="true">GO</div>
       </button>
 
-      <button class="info-card" @click="goElevation">
-        <div class="card-icon">⛰️</div>
+      <button class="info-card" @click="goElevation" aria-label="표고 프로파일 페이지로 이동">
+        <div class="card-icon" aria-hidden="true">⛰️</div>
         <div class="card-info">
           <div class="card-name">표고 프로파일</div>
           <div class="card-desc">전국 고속도로 해발 고도·경사도·산악 구간 분석 (Open-Meteo Elevation API)</div>
         </div>
-        <div class="card-badge playable">GO</div>
+        <div class="card-badge playable" aria-hidden="true">GO</div>
       </button>
 
-      <button class="info-card" @click="goWeatherModel">
-        <div class="card-icon">🔮</div>
+      <button class="info-card" @click="goWeatherModel" aria-label="멀티모델 예보 비교 페이지로 이동">
+        <div class="card-icon" aria-hidden="true">🔮</div>
         <div class="card-info">
           <div class="card-name">멀티모델 예보 비교</div>
           <div class="card-desc">GFS·ICON·ECMWF 3대 모델 예보 비교·신뢰도 분석</div>
         </div>
-        <div class="card-badge playable">GO</div>
+        <div class="card-badge playable" aria-hidden="true">GO</div>
       </button>
 
-      <button class="info-card" @click="goMinutelyForecast">
-        <div class="card-icon">⏱️</div>
+      <button class="info-card" @click="goMinutelyForecast" aria-label="단기 강수·시정 예보 페이지로 이동">
+        <div class="card-icon" aria-hidden="true">⏱️</div>
         <div class="card-info">
           <div class="card-name">단기 강수·시정 예보</div>
           <div class="card-desc">15분 단위 강수·가시거리 예측 — 앞으로 4시간 (Open-Meteo minutely_15)</div>
         </div>
-        <div class="card-badge playable">GO</div>
+        <div class="card-badge playable" aria-hidden="true">GO</div>
       </button>
 
-      <button class="info-card" @click="goWeatherHistory">
-        <div class="card-icon">📉</div>
+      <button class="info-card" @click="goWeatherHistory" aria-label="기상 이력 분석 페이지로 이동">
+        <div class="card-icon" aria-hidden="true">📉</div>
         <div class="card-info">
           <div class="card-name">기상 이력 분석</div>
           <div class="card-desc">과거 7일 기상 관측 데이터·기온 추이·강수 패턴 분석 (Open-Meteo ERA5 Archive)</div>
         </div>
-        <div class="card-badge playable">GO</div>
+        <div class="card-badge playable" aria-hidden="true">GO</div>
       </button>
 
-      <button class="info-card" @click="goThunderstorm">
-        <div class="card-icon">⛈️</div>
+      <button class="info-card" @click="goThunderstorm" aria-label="뇌우·대기불안정 예보 페이지로 이동">
+        <div class="card-icon" aria-hidden="true">⛈️</div>
         <div class="card-info">
           <div class="card-name">뇌우·대기불안정 예보</div>
           <div class="card-desc">CAPE·상승지수·이슬점 기반 낙뢰·뇌우 발생 가능성 분석 (Open-Meteo)</div>
         </div>
-        <div class="card-badge playable">GO</div>
+        <div class="card-badge playable" aria-hidden="true">GO</div>
       </button>
     </div>
 
