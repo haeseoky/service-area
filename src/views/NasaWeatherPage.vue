@@ -2,7 +2,7 @@
   <div class="nasa-page">
     <nav class="page-nav">
       <button class="btn-back" @click="$router.push('/')">← 홈</button>
-      <span class="nav-title">🛰️ 위성 기상 분석</span>
+      <h1 class="nav-title">🛰️ 위성 기상 분석</h1>
       <span class="nav-spacer"></span>
     </nav>
 
@@ -258,7 +258,7 @@ function getWindDirText(deg) {
   background: rgba(255,255,255,0.15); border: none; color: #fff;
   padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 13px;
 }
-.nav-title { font-size: 16px; font-weight: 700; }
+.nav-title { margin: 0; font-size: 16px; font-weight: 700; }
 .nav-spacer { flex: 1; }
 
 .loading, .error-box {

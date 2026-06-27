@@ -2,7 +2,7 @@
   <div class="flood-page">
     <nav class="page-nav">
       <button class="btn-back" @click="$router.push('/')">← 홈</button>
-      <span class="nav-title">🌊 하천 범람 위험</span>
+      <h1 class="nav-title">🌊 하천 범람 위험</h1>
       <span class="nav-spacer"></span>
     </nav>
 
@@ -212,7 +212,7 @@ function formatDateShort(dateStr) {
   font-size: 13px;
   cursor: pointer;
 }
-.nav-title { font-size: 16px; font-weight: 700; }
+.nav-title { margin: 0; font-size: 16px; font-weight: 700; }
 .nav-spacer { flex: 1; }
 
 .loading {

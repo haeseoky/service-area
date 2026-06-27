@@ -2,7 +2,7 @@
   <div class="brand-page">
     <nav class="page-nav">
       <button class="btn-back" @click="$router.push('/')">← 홈</button>
-      <span class="nav-title">🏪 브랜드 매장</span>
+      <h1 class="nav-title">🏪 브랜드 매장</h1>
       <span class="nav-spacer"></span>
     </nav>
 
@@ -216,7 +216,7 @@ onMounted(loadData)
   position: sticky; top: 0; z-index: 10;
 }
 .btn-back { background: none; border: none; color: #4D9BC6; font-size: 14px; font-weight: 600; cursor: pointer; }
-.nav-title { font-size: 15px; font-weight: 700; }
+.nav-title { margin: 0; font-size: 15px; font-weight: 700; }
 .nav-spacer { flex: 1; }
 
 .summary-bar { display: flex; background: #fff; padding: 16px; border-bottom: 1px solid #eee; }

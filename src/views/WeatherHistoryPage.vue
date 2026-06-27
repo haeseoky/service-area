@@ -2,7 +2,7 @@
   <div class="hist-page">
     <nav class="page-nav">
       <button class="btn-back" @click="$router.push('/')">← 홈</button>
-      <span class="nav-title">📉 기상 이력 분석</span>
+      <h1 class="nav-title">📉 기상 이력 분석</h1>
       <span class="nav-spacer"></span>
     </nav>
 
@@ -270,7 +270,7 @@ function precipColor(precip) {
   position: sticky; top: 0; z-index: 10;
 }
 .btn-back { background: none; border: none; color: #a8c4e0; font-size: 14px; cursor: pointer; white-space: nowrap; }
-.nav-title { font-size: 16px; font-weight: 700; }
+.nav-title { margin: 0; font-size: 16px; font-weight: 700; }
 .nav-spacer { flex: 1; }
 
 .loading, .error-box {

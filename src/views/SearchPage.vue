@@ -2,7 +2,7 @@
   <div class="search-page">
     <nav class="page-nav">
       <button class="btn-back" @click="$router.push('/')">← 홈</button>
-      <span class="nav-title">🔍 휴게소 통합검색</span>
+      <h1 class="nav-title">🔍 휴게소 통합검색</h1>
       <span class="nav-spacer"></span>
     </nav>
 
@@ -146,7 +146,7 @@ async function doSearch() {
   position: sticky; top: 0; z-index: 10;
 }
 .btn-back { background: none; border: none; color: #4D9BC6; font-size: 14px; font-weight: 600; cursor: pointer; }
-.nav-title { font-size: 15px; font-weight: 700; }
+.nav-title { margin: 0; font-size: 15px; font-weight: 700; }
 .nav-spacer { flex: 1; }
 
 .search-bar {

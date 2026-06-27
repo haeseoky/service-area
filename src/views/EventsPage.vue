@@ -3,7 +3,7 @@
     <!-- 헤더 -->
     <header class="page-header">
       <button class="btn-back" @click="$router.push('/')">← 홈</button>
-      <span class="page-title">🎉 휴게소 이벤트</span>
+      <h1 class="page-title">🎉 휴게소 이벤트</h1>
       <span></span>
     </header>
 
@@ -311,7 +311,7 @@ onMounted(loadEvents)
   padding: 6px 12px;
 }
 
-.page-title {
+.page-title { margin: 0;
   font-size: 16px;
   font-weight: 700;
 }

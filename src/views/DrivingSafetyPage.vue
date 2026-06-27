@@ -2,7 +2,7 @@
   <div class="safety-page">
     <nav class="page-nav">
       <button class="btn-back" @click="$router.push('/')">← 홈</button>
-      <span class="nav-title">🚦 운전안전 지수</span>
+      <h1 class="nav-title">🚦 운전안전 지수</h1>
       <span class="nav-spacer"></span>
     </nav>
 
@@ -222,7 +222,7 @@ onMounted(loadData)
   font-weight: 600;
   cursor: pointer;
 }
-.nav-title {
+.nav-title { margin: 0;
   font-size: 15px;
   font-weight: 700;
 }

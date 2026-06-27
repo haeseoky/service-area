@@ -2,7 +2,7 @@
   <div class="route-traffic-page">
     <nav class="page-nav">
       <button class="btn-back" @click="goBack">← 홈</button>
-      <span class="nav-title">🛣️ 노선별 교통량 분석</span>
+      <h1 class="nav-title">🛣️ 노선별 교통량 분석</h1>
       <span class="nav-spacer"></span>
     </nav>
 
@@ -325,7 +325,7 @@ onMounted(() => fetchData())
   font-size: 14px; font-weight: 600;
   cursor: pointer;
 }
-.nav-title { font-size: 15px; font-weight: 700; }
+.nav-title { margin: 0; font-size: 15px; font-weight: 700; }
 .nav-spacer { flex: 1; }
 
 .route-selector { padding: 12px; background: #fff; border-bottom: 1px solid #eee; }

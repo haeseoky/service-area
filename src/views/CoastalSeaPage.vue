@@ -2,7 +2,7 @@
   <div class="sea-page">
     <nav class="page-nav">
       <button class="btn-back" @click="$router.push('/')">← 홈</button>
-      <span class="nav-title">🌊 해안 고속도로 해상정보</span>
+      <h1 class="nav-title">🌊 해안 고속도로 해상정보</h1>
       <span class="nav-spacer"></span>
     </nav>
 
@@ -212,7 +212,7 @@ onMounted(async () => {
   font-size: 14px;
   cursor: pointer;
 }
-.nav-title { color: #fff; font-size: 16px; font-weight: 700; margin-left: 12px; }
+.nav-title { margin: 0; color: #fff; font-size: 16px; font-weight: 700; margin-left: 12px; }
 .nav-spacer { flex: 1; }
 
 .loading {

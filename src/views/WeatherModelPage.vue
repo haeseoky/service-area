@@ -2,7 +2,7 @@
   <div class="model-page">
     <nav class="page-nav">
       <button class="btn-back" @click="$router.push('/')">← 홈</button>
-      <span class="nav-title">🔮 멀티모델 예보 비교</span>
+      <h1 class="nav-title">🔮 멀티모델 예보 비교</h1>
       <span class="nav-spacer"></span>
     </nav>
 
@@ -258,7 +258,7 @@ const overall = computed(() => {
   z-index: 10;
 }
 .btn-back { background: none; border: none; color: #fff; font-size: 14px; cursor: pointer; }
-.nav-title { font-size: 16px; font-weight: 700; margin-left: 8px; }
+.nav-title { margin: 0; font-size: 16px; font-weight: 700; margin-left: 8px; }
 .nav-spacer { flex: 1; }
 
 .loading { text-align: center; padding: 60px 20px; color: #666; }

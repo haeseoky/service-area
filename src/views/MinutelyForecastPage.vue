@@ -2,7 +2,7 @@
   <div class="minutely-page">
     <nav class="page-nav">
       <button class="btn-back" @click="$router.push('/')">← 홈</button>
-      <span class="nav-title">⏱️ 단기 강수·시정 예보</span>
+      <h1 class="nav-title">⏱️ 단기 강수·시정 예보</h1>
       <span class="nav-spacer"></span>
     </nav>
 
@@ -194,7 +194,7 @@ function getVisColor(vis) {
   position: sticky; top: 0; z-index: 10;
 }
 .btn-back { background: none; border: none; color: #fff; font-size: 14px; cursor: pointer; padding: 4px 8px; }
-.nav-title { font-size: 16px; font-weight: 700; flex: 1; text-align: center; }
+.nav-title { margin: 0; font-size: 16px; font-weight: 700; flex: 1; text-align: center; }
 .nav-spacer { width: 60px; }
 
 .loading { text-align: center; padding: 60px 20px; color: #666; }

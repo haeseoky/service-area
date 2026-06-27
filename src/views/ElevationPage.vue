@@ -2,7 +2,7 @@
   <div class="elev-page">
     <nav class="page-nav">
       <button class="btn-back" @click="$router.push('/')">← 홈</button>
-      <span class="nav-title">⛰️ 표고 프로파일</span>
+      <h1 class="nav-title">⛰️ 표고 프로파일</h1>
       <span class="nav-spacer"></span>
     </nav>
 
@@ -237,7 +237,7 @@ onMounted(async () => {
   cursor: pointer;
   padding: 6px 8px;
 }
-.nav-title { font-size: 16px; font-weight: 700; flex: 1; text-align: center; }
+.nav-title { margin: 0; font-size: 16px; font-weight: 700; flex: 1; text-align: center; }
 .nav-spacer { width: 40px; }
 
 .loading {
