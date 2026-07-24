@@ -1,4 +1,15 @@
 User-agent: *
 Allow: /
+Allow: /ads.txt
+
+# AdSense crawlers - explicit allow
+User-agent: Mediapartners-Google
+Allow: /
+
+User-agent: AdsBot-Google
+Allow: /
+
+User-agent: AdsBot-Google-Mobile
+Allow: /
 
 Sitemap: https://service-area.nutalk.co.kr/sitemap.xml
