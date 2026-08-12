@@ -3,6 +3,7 @@
     <header class="home-header">
       <h1 class="logo">🛣️ 고속도로 정보 허브</h1>
       <p class="subtitle">전국 고속도로 정보를 한눈에</p>
+      <p class="season-badge">☀️ 2026 하계 특별교통대책 (7.25~8.10) · 휴게소 직계약 개편 추진 중</p>
     </header>
 
     <div class="card-grid">
@@ -170,8 +171,20 @@
       </button>
     </div>
 
+    <!-- 여름 휴가철 팁 배너 -->
+    <div class="season-tips">
+      <h2>🌞 여름 휴가철 휴게소 이용 팁</h2>
+      <ul>
+        <li><strong>피크 시간대 피하기</strong> — 11시~14시 혼잡, 새벽·심시 이용 권장</li>
+        <li><strong>실시간 교통량 확인</strong> — 수도권 관문 교통량 페이지에서 출발 전 확인</li>
+        <li><strong>휴게소 이벤트 활용</strong> — 안성·여주·용인 등에서 경품 추첨 및 할인 혜택 진행 중</li>
+        <li><strong>휴게소 개편 소식</strong> — 도로공사가 8곳 시범 휴게소와 직접 계약, 12월 개장 목표로 8월 입찰 공고 예정</li>
+        <li><strong>안전 운전</strong> — 2시간마다 휴게소에서 15분 휴식, 졸음운전 예방 얼음물 제공</li>
+      </ul>
+    </div>
+
     <div class="footer-info">
-      <p>🚀 공공 데이터로 운영됩니다</p>
+      <p>🚀 공공 데이터로 운영됩니다 · 데이터 갱신: 2026.08.13</p>
       <p class="footer-link">service-area.nutalk.co.kr</p>
     </div>
   </div>
@@ -268,6 +281,31 @@ function goThunderstorm() { router.push('/thunderstorm') }
 
 .card-badge { flex-shrink: 0; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 8px; }
 .card-badge.playable { background: #E8F5E9; color: #16A34A; }
+
+.season-badge {
+  display: inline-block;
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-size: 12px;
+  color: #e0f0ff;
+  margin-top: 10px;
+}
+
+.season-tips {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 20px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.season-tips h2 { font-size: 16px; font-weight: 700; color: #1B355A; margin-bottom: 12px; }
+.season-tips ul { list-style: none; padding: 0; margin: 0; }
+.season-tips li { font-size: 13px; color: #555; line-height: 1.6; padding: 6px 0; border-bottom: 1px solid #f0f0f0; }
+.season-tips li:last-child { border-bottom: none; }
+.season-tips li strong { color: #1B355A; }
 
 .footer-info { text-align: center; margin-top: 28px; color: #aaa; font-size: 12px; }
 .footer-link { margin-top: 4px; color: #4D9BC6; }
