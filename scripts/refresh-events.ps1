@@ -5,13 +5,23 @@ $ErrorActionPreference = 'Stop'
 
 $projectDir = "C:\Users\haese\projects\service-area"
 $apiKey = "0105398808"
-$apiUrl = "https://data.ex.co.kr/openapi/restinfo/restEventList?key=$apiKey&type=json&numOfRows=2000&pageNo=1"
+$apiUrl = "https://data.ex.co.kr/openapi/restinfo/restEventList?key=$apiKey&type=json&numOfRows=100"
 
 Write-Host "=== 휴게소 이벤트 데이터 갱신 시작 ==="
 
-# 1. API 호출
-$data = Invoke-RestMethod -Uri $apiUrl -Method Get
-Write-Host "API 호출 완료: $($data.count)건"
+# 1. API 호출 (페이징 — 페이지당 99건씩 반환됨)
+$all = @()
+$page = 1
+while ($true) {
+    $d = Invoke-RestMethod -Uri "$apiUrl&pageNo=$page" -Method Get
+    if (-not $d.list -or $d.list.Count -eq 0) { break }
+    $all += $d.list
+    if ($all.Count -ge $d.count) { break }
+    $page++
+    Start-Sleep -Milliseconds 300
+}
+$data = [pscustomobject]@{ count = $all.Count; list = $all }
+Write-Host "API 호출 완료: $($data.count)건 ($page 페이지)"
 
 # 2. 정적 JSON 파일로 저장 (public/ 디렉토리 → 빌드 시 dist/ 로 복사)
 $publicDir = Join-Path $projectDir "public"
