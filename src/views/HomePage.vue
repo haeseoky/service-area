@@ -213,6 +213,27 @@
 
 <script setup>
 import { h } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+const goSearch = () => router.push('/search')
+const goEvents = () => router.push('/events')
+const goBrands = () => router.push('/brands')
+const goFacilities = () => router.push('/facilities')
+const goTraffic = () => router.push('/traffic')
+const goRouteTraffic = () => router.push('/route-traffic')
+const goWeather = () => router.push('/weather')
+const goWeeklyWeather = () => router.push('/weekly-weather')
+const goAirQuality = () => router.push('/air-quality')
+const goWeatherModel = () => router.push('/weather-model')
+const goMinutelyForecast = () => router.push('/minutely-forecast')
+const goWeatherHistory = () => router.push('/weather-history')
+const goThunderstorm = () => router.push('/thunderstorm')
+const goDrivingSafety = () => router.push('/driving-safety')
+const goRoadSurface = () => router.push('/road-surface')
+const goFloodRisk = () => router.push('/flood-risk')
+const goCoastalSea = () => router.push('/coastal-sea')
+const goElevation = () => router.push('/elevation')
 
 const Icon = {
   props: { d: { type: String, required: true } },
